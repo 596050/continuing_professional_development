@@ -688,17 +688,30 @@ export async function cleanupUser(userId: string) {
   await prisma.quizAttempt.deleteMany({ where: { userId } });
   await prisma.reminder.deleteMany({ where: { userId } });
   await prisma.evidence.deleteMany({ where: { userId } });
-  // Remove completion rules linked to user's CPD records
+  // Remove allocations linked to user's CPD records
   const userRecords = await prisma.cpdRecord.findMany({
     where: { userId },
     select: { id: true },
   });
   if (userRecords.length > 0) {
+    await prisma.cpdAllocation.deleteMany({
+      where: { cpdRecordId: { in: userRecords.map((r) => r.id) } },
+    });
     await prisma.completionRule.deleteMany({
       where: { cpdRecordId: { in: userRecords.map((r) => r.id) } },
     });
   }
   await prisma.cpdRecord.deleteMany({ where: { userId } });
+  // Remove allocations linked to user's credentials
+  const userCreds = await prisma.userCredential.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  if (userCreds.length > 0) {
+    await prisma.cpdAllocation.deleteMany({
+      where: { userCredentialId: { in: userCreds.map((c) => c.id) } },
+    });
+  }
   await prisma.userCredential.deleteMany({ where: { userId } });
   await prisma.onboardingSubmission.deleteMany({ where: { userId } });
   // Unlink from firm before deleting user
@@ -722,6 +735,72 @@ export async function cleanupTestQuizzes() {
     await prisma.quizAttempt.deleteMany({ where: { quizId: q.id } });
     await prisma.quiz.delete({ where: { id: q.id } });
   }
+}
+
+// ------------------------------------------------------------------
+// State 16: User with inbox evidence (unassigned evidence items)
+// ------------------------------------------------------------------
+export async function createUserWithInboxEvidence() {
+  const withRecords = await createUserWithCpdRecords();
+
+  const inboxEvidence = [];
+  inboxEvidence.push(
+    await prisma.evidence.create({
+      data: {
+        userId: withRecords.user.id,
+        fileName: "cpd_certificate_ethics.pdf",
+        fileType: "pdf",
+        fileSize: 52000,
+        storageKey: `uploads/${withRecords.user.id}/inbox_cert.pdf`,
+        kind: "certificate",
+        status: "inbox",
+        extractedMetadata: JSON.stringify({
+          title: "Ethics Training Certificate",
+          hours: 2,
+          provider: "CFP Board",
+          date: "2026-03-15",
+        }),
+      },
+    })
+  );
+  inboxEvidence.push(
+    await prisma.evidence.create({
+      data: {
+        userId: withRecords.user.id,
+        fileName: "webinar_transcript.pdf",
+        fileType: "pdf",
+        fileSize: 31000,
+        storageKey: `uploads/${withRecords.user.id}/inbox_transcript.pdf`,
+        kind: "transcript",
+        status: "inbox",
+      },
+    })
+  );
+  inboxEvidence.push(
+    await prisma.evidence.create({
+      data: {
+        userId: withRecords.user.id,
+        cpdRecordId: withRecords.records[0].id,
+        fileName: "assigned_doc.pdf",
+        fileType: "pdf",
+        fileSize: 20000,
+        storageKey: `uploads/${withRecords.user.id}/assigned.pdf`,
+        kind: "other",
+        status: "assigned",
+      },
+    })
+  );
+
+  return { ...withRecords, inboxEvidence };
+}
+
+// ------------------------------------------------------------------
+// Cleanup: remove test rule packs
+// ------------------------------------------------------------------
+export async function cleanupTestRulePacks() {
+  await prisma.credentialRulePack.deleteMany({
+    where: { name: { contains: "Test" } },
+  });
 }
 
 // ------------------------------------------------------------------

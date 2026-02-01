@@ -3,6 +3,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { features, DEMO_USER } from "@/lib/features";
+import {
+  Button, Spinner, AppNav, StatsCard, Card,
+  Modal, ModalHeader, ModalBody, ModalFooter,
+  Input, Select, Textarea, FileInput,
+  Alert, Badge, StatusBadge, ProgressBar, EmptyState,
+} from "@/components/ui";
 
 interface DashboardData {
   user: { name: string; email: string; plan: string; role: string };
@@ -92,6 +98,12 @@ export default function DashboardPage() {
   const [logForm, setLogForm] = useState<LogFormData>(emptyLogForm);
   const [logSaving, setLogSaving] = useState(false);
   const [logError, setLogError] = useState("");
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadRecordId, setUploadRecordId] = useState("");
+  const [uploadSaving, setUploadSaving] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [exporting, setExporting] = useState<"pdf" | "csv" | null>(null);
   const isDemo = !session?.user && features.DEMO_MODE;
 
   const fetchDashboard = useCallback(async () => {
@@ -145,16 +157,58 @@ export default function DashboardPage() {
     }
   };
 
-  if (authStatus === "loading" || loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent" />
-          <p className="mt-4 text-sm text-gray-500">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleExport = async (format: "pdf" | "csv") => {
+    setExporting(format);
+    try {
+      const url = format === "pdf" ? "/api/export/audit-report" : "/api/export/audit-csv";
+      const res = await fetch(url);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Export failed" }));
+        throw new Error(err.error || "Export failed");
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get("Content-Disposition") ?? "";
+      const filenameMatch = disposition.match(/filename="(.+?)"/);
+      const filename = filenameMatch?.[1] ?? `audit_report.${format === "pdf" ? "pdf" : "csv"}`;
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      // Could add toast notification here
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleUploadEvidence = async () => {
+    if (!uploadFile) return;
+    setUploadSaving(true);
+    setUploadError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      if (uploadRecordId) formData.append("cpdRecordId", uploadRecordId);
+      const res = await fetch("/api/evidence", { method: "POST", body: formData });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Upload failed");
+      }
+      setShowUploadForm(false);
+      setUploadFile(null);
+      setUploadRecordId("");
+      fetchDashboard();
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setUploadSaving(false);
+    }
+  };
+
+  if (authStatus === "loading" || loading) return <Spinner text="Loading dashboard..." />;
 
   if (!session?.user && !isDemo) {
     return (
@@ -192,32 +246,14 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Top bar */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <a href="/" className="text-lg font-bold tracking-tight text-gray-900">
-            Audit<span className="text-blue-600">Ready</span>CPD
-          </a>
-          <div className="flex items-center gap-4">
-            {isDemo && (
-              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                Demo mode
-              </span>
-            )}
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-sm font-bold text-blue-600">
-                {(user.name || user.email || "U").charAt(0).toUpperCase()}
-              </div>
-              <span className="text-sm font-medium text-gray-700">{user.name || user.email}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+      <AppNav>
+        {isDemo && <Badge variant="amber">Demo mode</Badge>}
+      </AppNav>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Demo banner */}
         {isDemo && (
-          <div className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <Alert variant="success" className="mb-8">
             <div className="flex items-start gap-3">
               <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
@@ -232,106 +268,94 @@ export default function DashboardPage() {
                 </p>
               </div>
             </div>
-          </div>
+          </Alert>
         )}
 
         {/* No credential banner */}
         {!isDemo && !credential && (
-          <div className="mb-8 rounded-xl border border-blue-200 bg-blue-50 p-4">
-            <p className="text-sm text-blue-800">
-              <strong>Complete your profile</strong> to see personalised CPD requirements.{" "}
-              <a href="/onboarding" className="font-medium underline">Go to onboarding</a>
-            </p>
-          </div>
+          <Alert variant="info" className="mb-8">
+            <strong>Complete your profile</strong> to see personalised CPD requirements.{" "}
+            <a href="/onboarding" className="font-medium underline">Go to onboarding</a>
+          </Alert>
         )}
 
         {/* Stats grid */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <div className="text-sm font-medium text-gray-500">Hours Completed</div>
-            <div className="mt-2 text-3xl font-bold text-gray-900">{progress.totalHoursCompleted}</div>
-            <div className="mt-1 text-sm text-gray-500">
-              {progress.hoursRequired > 0 ? `of ${progress.hoursRequired} required` : "logged"}
-            </div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <div className="text-sm font-medium text-gray-500">Hours Remaining</div>
-            <div className={`mt-2 text-3xl font-bold ${urgencyColor}`}>{hoursRemaining}</div>
-            <div className="mt-1 text-sm text-gray-500">to complete this cycle</div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
+          <StatsCard
+            label="Hours Completed"
+            value={progress.totalHoursCompleted}
+            sub={progress.hoursRequired > 0 ? `of ${progress.hoursRequired} required` : "logged"}
+          />
+          <StatsCard
+            label="Hours Remaining"
+            value={hoursRemaining}
+            valueColor={urgencyColor}
+            sub="to complete this cycle"
+          />
+          <Card>
             <div className="text-sm font-medium text-gray-500">Progress</div>
             <div className="mt-2 text-3xl font-bold text-blue-600">{progress.progressPercent}%</div>
             <div className="mt-3 h-2 rounded-full bg-gray-200">
               <div className="h-2 rounded-full bg-blue-600 transition-all" style={{ width: `${progress.progressPercent}%` }} />
             </div>
-          </div>
-          <div className="rounded-xl border border-gray-200 bg-white p-6">
-            <div className="text-sm font-medium text-gray-500">Certificates</div>
-            <div className="mt-2 text-3xl font-bold text-emerald-600">{progress.certificateCount}</div>
-            <div className="mt-1 text-sm text-gray-500">in your vault</div>
-          </div>
+          </Card>
+          <StatsCard
+            label="Certificates"
+            value={progress.certificateCount}
+            valueColor="text-emerald-600"
+            sub="in your vault"
+          />
         </div>
 
         {/* CPD Gap Analysis */}
         {credential && (progress.ethicsRequired > 0 || progress.structuredRequired > 0) && (
-          <div className="mt-8 rounded-xl border border-gray-200 bg-white p-6">
+          <Card className="mt-8">
             <h2 className="text-lg font-semibold text-gray-900">CPD Gap Analysis - {credential.name}</h2>
             <p className="mt-1 text-sm text-gray-500">{credential.body} ({credential.region})</p>
             <div className="mt-6 grid gap-6 sm:grid-cols-3">
-              {/* Total hours */}
-              <GapBar
+              <ProgressBar
                 label="Total Hours"
                 completed={progress.totalHoursCompleted}
                 required={progress.hoursRequired}
+                size="md"
               />
-              {/* Ethics */}
               {progress.ethicsRequired > 0 && (
-                <GapBar
+                <ProgressBar
                   label="Ethics Hours"
                   completed={progress.ethicsHoursCompleted}
                   required={progress.ethicsRequired}
+                  size="md"
                 />
               )}
-              {/* Structured */}
               {progress.structuredRequired > 0 && (
-                <GapBar
+                <ProgressBar
                   label="Structured/Verifiable"
                   completed={progress.structuredHoursCompleted}
                   required={progress.structuredRequired}
+                  size="md"
                 />
               )}
             </div>
-          </div>
+          </Card>
         )}
 
         <div className="mt-8 grid gap-8 lg:grid-cols-3">
           {/* Activities */}
           <div className="lg:col-span-2">
-            <div className="rounded-xl border border-gray-200 bg-white">
+            <Card padding="sm" className="p-0">
               <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
                 <h2 className="text-lg font-semibold text-gray-900">CPD Activities</h2>
                 {!isDemo && (
-                  <button
-                    onClick={() => setShowLogForm(true)}
-                    className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 active:bg-blue-800"
-                  >
-                    + Log activity
-                  </button>
+                  <Button onClick={() => setShowLogForm(true)}>+ Log activity</Button>
                 )}
               </div>
 
               {activities.length === 0 ? (
-                <div className="px-6 py-12 text-center">
-                  <p className="text-sm text-gray-500">No activities logged yet.</p>
-                  {!isDemo && (
-                    <button
-                      onClick={() => setShowLogForm(true)}
-                      className="mt-3 text-sm font-medium text-blue-600 underline"
-                    >
-                      Log your first CPD activity
-                    </button>
-                  )}
+                <div className="px-6 py-12">
+                  <EmptyState
+                    message="No activities logged yet."
+                    action={!isDemo ? <button onClick={() => setShowLogForm(true)} className="text-sm font-medium text-blue-600 underline">Log your first CPD activity</button> : undefined}
+                  />
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -341,7 +365,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{activity.title}</span>
                           {activity.category === "ethics" && (
-                            <span className="rounded bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-600">ethics</span>
+                            <Badge variant="purple" shape="rounded">ethics</Badge>
                           )}
                         </div>
                         <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
@@ -351,28 +375,18 @@ export default function DashboardPage() {
                           <span>{new Date(activity.date).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          activity.status === "completed"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : activity.status === "in_progress"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-gray-100 text-gray-600"
-                        }`}
-                      >
-                        {activity.status === "in_progress" ? "in progress" : activity.status}
-                      </span>
+                      <StatusBadge status={activity.status} />
                     </div>
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Profile card */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <Card>
               <h3 className="text-sm font-semibold text-gray-900">Your Profile</h3>
               <dl className="mt-4 space-y-3 text-sm">
                 {credential && (
@@ -400,226 +414,201 @@ export default function DashboardPage() {
                   <dd className="font-medium capitalize text-blue-600">{user.plan}</dd>
                 </div>
               </dl>
-            </div>
+            </Card>
 
             {/* Deadlines */}
             {deadline.daysUntilDeadline !== null && (
-              <div className="rounded-xl border border-gray-200 bg-white p-6">
+              <Card>
                 <h3 className="text-sm font-semibold text-gray-900">Upcoming Deadlines</h3>
                 <div className="mt-4 space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-700">{credential?.name} cycle ends</span>
-                    <span className={`rounded px-2 py-0.5 text-xs font-medium ${
-                      deadline.daysUntilDeadline < 60
-                        ? "bg-red-100 text-red-700"
-                        : deadline.daysUntilDeadline < 180
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-gray-100 text-gray-600"
-                    }`}>
+                    <Badge
+                      variant={deadline.daysUntilDeadline < 60 ? "red" : deadline.daysUntilDeadline < 180 ? "amber" : "gray"}
+                      shape="rounded"
+                    >
                       {deadline.daysUntilDeadline}d
-                    </span>
+                    </Badge>
                   </div>
                   {progress.ethicsRequired > 0 && progress.ethicsHoursCompleted < progress.ethicsRequired && (
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-gray-700">Ethics requirement</span>
-                      <span className="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                      <Badge variant="amber" shape="rounded">
                         {progress.ethicsRequired - progress.ethicsHoursCompleted}h remaining
-                      </span>
+                      </Badge>
                     </div>
                   )}
                 </div>
-              </div>
+              </Card>
             )}
 
             {/* Quick actions */}
-            <div className="rounded-xl border border-gray-200 bg-white p-6">
+            <Card>
               <h3 className="text-sm font-semibold text-gray-900">Quick Actions</h3>
               <div className="mt-4 space-y-2">
                 {!isDemo && (
-                  <button
-                    onClick={() => setShowLogForm(true)}
-                    className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
-                  >
+                  <Button variant="secondary" fullWidth className="justify-start" onClick={() => setShowLogForm(true)}>
                     Log CPD activity
-                  </button>
+                  </Button>
                 )}
-                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
-                  Export audit report (PDF)
-                </button>
-                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
-                  Export audit report (CSV)
-                </button>
-                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
-                  Upload certificate
-                </button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className="justify-start"
+                  onClick={() => handleExport("pdf")}
+                  disabled={exporting !== null || isDemo}
+                >
+                  {exporting === "pdf" ? "Exporting..." : "Export audit report (PDF)"}
+                </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className="justify-start"
+                  onClick={() => handleExport("csv")}
+                  disabled={exporting !== null || isDemo}
+                >
+                  {exporting === "csv" ? "Exporting..." : "Export audit report (CSV)"}
+                </Button>
+                {!isDemo && (
+                  <Button variant="secondary" fullWidth className="justify-start" onClick={() => setShowUploadForm(true)}>
+                    Upload evidence
+                  </Button>
+                )}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       </div>
+
+      {/* Upload Evidence Modal */}
+      <Modal open={showUploadForm} onClose={() => { setShowUploadForm(false); setUploadError(""); setUploadFile(null); }}>
+        <ModalHeader title="Upload Evidence" onClose={() => { setShowUploadForm(false); setUploadError(""); setUploadFile(null); }} />
+        <ModalBody>
+          <FileInput
+            label="File *"
+            accept=".pdf,.jpg,.jpeg,.png,.webp,.txt"
+            onChange={(e) => setUploadFile((e.target as HTMLInputElement).files?.[0] ?? null)}
+            hint="PDF, JPEG, PNG, WebP, or Text. Max 10MB."
+          />
+          <Select
+            label="Link to CPD activity (optional)"
+            value={uploadRecordId}
+            onChange={(e) => setUploadRecordId(e.target.value)}
+          >
+            <option value="">-- No linked activity --</option>
+            {activities.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.title} ({a.hours}h - {new Date(a.date).toLocaleDateString()})
+              </option>
+            ))}
+          </Select>
+        </ModalBody>
+        {uploadError && <Alert variant="error" className="mt-4">{uploadError}</Alert>}
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => { setShowUploadForm(false); setUploadError(""); setUploadFile(null); }}>
+            Cancel
+          </Button>
+          <Button onClick={handleUploadEvidence} disabled={uploadSaving || !uploadFile}>
+            {uploadSaving ? "Uploading..." : "Upload"}
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       {/* Log Activity Modal */}
-      {showLogForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-900">Log CPD Activity</h2>
-              <button onClick={() => { setShowLogForm(false); setLogError(""); }} className="cursor-pointer text-gray-400 transition hover:text-gray-600">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Activity title *</label>
-                <input
-                  type="text"
-                  value={logForm.title}
-                  onChange={(e) => setLogForm({ ...logForm, title: e.target.value })}
-                  list="recent-titles"
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="e.g. Ethics in Financial Planning"
-                />
-                {/* Autocomplete from previously logged activity titles */}
-                <datalist id="recent-titles">
-                  {[...new Set(activities.map((a) => a.title))].map((t) => (
-                    <option key={t} value={t} />
-                  ))}
-                </datalist>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Hours *</label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    min="0.5"
-                    value={logForm.hours}
-                    onChange={(e) => setLogForm({ ...logForm, hours: e.target.value })}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                    placeholder="2"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Date *</label>
-                  <input
-                    type="date"
-                    value={logForm.date}
-                    onChange={(e) => setLogForm({ ...logForm, date: e.target.value })}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Provider</label>
-                <input
-                  type="text"
-                  value={logForm.provider}
-                  onChange={(e) => setLogForm({ ...logForm, provider: e.target.value })}
-                  list="recent-providers"
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="e.g. CFP Board, CII, Kitces.com"
-                />
-                {/* Autocomplete from previously used providers to reduce re-typing */}
-                <datalist id="recent-providers">
-                  {[...new Set(activities.map((a) => a.provider).filter(Boolean))].map((p) => (
-                    <option key={p} value={p!} />
-                  ))}
-                </datalist>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Activity type *</label>
-                  <select
-                    value={logForm.activityType}
-                    onChange={(e) => setLogForm({ ...logForm, activityType: e.target.value })}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="structured">Structured</option>
-                    <option value="unstructured">Unstructured</option>
-                    <option value="verifiable">Verifiable</option>
-                    <option value="non-verifiable">Non-verifiable</option>
-                    <option value="participatory">Participatory</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Category</label>
-                  <select
-                    value={logForm.category}
-                    onChange={(e) => setLogForm({ ...logForm, category: e.target.value })}
-                    className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  >
-                    <option value="general">General</option>
-                    <option value="ethics">Ethics</option>
-                    <option value="technical">Technical</option>
-                    <option value="regulatory_element">Regulatory Element</option>
-                    <option value="firm_element">Firm Element</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Notes</label>
-                <textarea
-                  value={logForm.notes}
-                  onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })}
-                  rows={2}
-                  className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
-                  placeholder="Optional notes about this activity"
-                />
-              </div>
-            </div>
-
-            {logError && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{logError}</div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => { setShowLogForm(false); setLogError(""); }}
-                className="cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogActivity}
-                disabled={logSaving || !logForm.title || !logForm.hours || !logForm.date}
-                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {logSaving ? "Saving..." : "Log activity"}
-              </button>
-            </div>
+      <Modal open={showLogForm} onClose={() => { setShowLogForm(false); setLogError(""); }}>
+        <ModalHeader title="Log CPD Activity" onClose={() => { setShowLogForm(false); setLogError(""); }} />
+        <ModalBody>
+          <div>
+            <Input
+              label="Activity title *"
+              type="text"
+              value={logForm.title}
+              onChange={(e) => setLogForm({ ...logForm, title: e.target.value })}
+              list="recent-titles"
+              placeholder="e.g. Ethics in Financial Planning"
+            />
+            {/* Autocomplete from previously logged activity titles */}
+            <datalist id="recent-titles">
+              {[...new Set(activities.map((a) => a.title))].map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function GapBar({ label, completed, required }: { label: string; completed: number; required: number }) {
-  const pct = required > 0 ? Math.min(100, Math.round((completed / required) * 100)) : 0;
-  const remaining = Math.max(0, required - completed);
-  const color = pct >= 100 ? "bg-emerald-500" : pct >= 60 ? "bg-blue-500" : pct >= 30 ? "bg-amber-500" : "bg-red-500";
-  const textColor = pct >= 100 ? "text-emerald-700" : pct >= 60 ? "text-blue-700" : pct >= 30 ? "text-amber-700" : "text-red-700";
-
-  return (
-    <div>
-      <div className="flex items-baseline justify-between">
-        <span className="text-sm font-medium text-gray-700">{label}</span>
-        <span className={`text-sm font-semibold ${textColor}`}>
-          {completed}/{required}h
-        </span>
-      </div>
-      <div className="mt-2 h-3 rounded-full bg-gray-200">
-        <div className={`h-3 rounded-full ${color} transition-all`} style={{ width: `${pct}%` }} />
-      </div>
-      {remaining > 0 && (
-        <p className="mt-1 text-xs text-gray-500">{remaining}h remaining</p>
-      )}
-      {remaining <= 0 && (
-        <p className="mt-1 text-xs text-emerald-600 font-medium">Complete</p>
-      )}
+          <div className="grid grid-cols-2 gap-4">
+            <Input
+              label="Hours *"
+              type="number"
+              step="0.5"
+              min="0.5"
+              value={logForm.hours}
+              onChange={(e) => setLogForm({ ...logForm, hours: e.target.value })}
+              placeholder="2"
+            />
+            <Input
+              label="Date *"
+              type="date"
+              value={logForm.date}
+              onChange={(e) => setLogForm({ ...logForm, date: e.target.value })}
+            />
+          </div>
+          <div>
+            <Input
+              label="Provider"
+              type="text"
+              value={logForm.provider}
+              onChange={(e) => setLogForm({ ...logForm, provider: e.target.value })}
+              list="recent-providers"
+              placeholder="e.g. CFP Board, CII, Kitces.com"
+            />
+            {/* Autocomplete from previously used providers to reduce re-typing */}
+            <datalist id="recent-providers">
+              {[...new Set(activities.map((a) => a.provider).filter(Boolean))].map((p) => (
+                <option key={p} value={p!} />
+              ))}
+            </datalist>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Select
+              label="Activity type *"
+              value={logForm.activityType}
+              onChange={(e) => setLogForm({ ...logForm, activityType: e.target.value })}
+            >
+              <option value="structured">Structured</option>
+              <option value="unstructured">Unstructured</option>
+              <option value="verifiable">Verifiable</option>
+              <option value="non-verifiable">Non-verifiable</option>
+              <option value="participatory">Participatory</option>
+            </Select>
+            <Select
+              label="Category"
+              value={logForm.category}
+              onChange={(e) => setLogForm({ ...logForm, category: e.target.value })}
+            >
+              <option value="general">General</option>
+              <option value="ethics">Ethics</option>
+              <option value="technical">Technical</option>
+              <option value="regulatory_element">Regulatory Element</option>
+              <option value="firm_element">Firm Element</option>
+            </Select>
+          </div>
+          <Textarea
+            label="Notes"
+            value={logForm.notes}
+            onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })}
+            rows={2}
+            placeholder="Optional notes about this activity"
+          />
+        </ModalBody>
+        {logError && <Alert variant="error" className="mt-4">{logError}</Alert>}
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => { setShowLogForm(false); setLogError(""); }}>
+            Cancel
+          </Button>
+          <Button onClick={handleLogActivity} disabled={logSaving || !logForm.title || !logForm.hours || !logForm.date}>
+            {logSaving ? "Saving..." : "Log activity"}
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }

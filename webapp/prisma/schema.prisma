@@ -100,6 +100,7 @@ model Credential {
   updatedAt       DateTime @updatedAt
 
   userCredentials UserCredential[]
+  rulePacks       CredentialRulePack[]
 }
 
 model UserCredential {
@@ -113,8 +114,9 @@ model UserCredential {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  credential Credential @relation(fields: [credentialId], references: [id])
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential  Credential      @relation(fields: [credentialId], references: [id])
+  allocations CpdAllocation[]
 
   @@unique([userId, credentialId])
 }
@@ -140,24 +142,30 @@ model CpdRecord {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  evidence Evidence[]
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence    Evidence[]
+  allocations CpdAllocation[]
 }
 
 model Evidence {
-  id          String   @id @default(cuid())
-  userId      String
-  cpdRecordId String?
-  fileName    String
-  fileType    String   // pdf | image | text
-  fileSize    Int
-  storageKey  String   // S3 key or local path
-  storageUrl  String?  // signed URL (generated on demand)
-  metadata    String?  // JSON: extracted date, duration, learning outcome
-  uploadedAt  DateTime @default(now())
+  id                String   @id @default(cuid())
+  userId            String
+  cpdRecordId       String?
+  fileName          String
+  fileType          String   // pdf | image | text
+  fileSize          Int
+  storageKey        String   // S3 key or local path
+  storageUrl        String?  // signed URL (generated on demand)
+  metadata          String?  // JSON: extracted date, duration, learning outcome
+  kind              String   @default("other") // certificate | transcript | agenda | screenshot | other
+  status            String   @default("inbox") // inbox | assigned | deleted
+  extractedMetadata String?  // JSON: AI/OCR extracted fields (title, provider, hours, date)
+  uploadedAt        DateTime @default(now())
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   cpdRecord CpdRecord? @relation(fields: [cpdRecordId], references: [id])
+
+  @@index([userId, status])
 }
 
 // ---------------------------------------------------------------------------
@@ -407,6 +415,44 @@ model CreditMapping {
 
   @@index([activityId, country])
   @@index([credentialId])
+}
+
+// ---------------------------------------------------------------------------
+// Rule Pack Versioning (PRD-004)
+// ---------------------------------------------------------------------------
+
+model CredentialRulePack {
+  id            String    @id @default(cuid())
+  credentialId  String
+  version       Int       @default(1)
+  name          String    // e.g. "CFP CE Rules 2026"
+  rules         String    // JSON: { hoursRequired, ethicsHours, structuredHours, cycleLengthYears, categoryRules }
+  effectiveFrom DateTime
+  effectiveTo   DateTime? // null = currently active (no end date yet)
+  changelog     String?   // description of what changed from previous version
+  createdAt     DateTime  @default(now())
+
+  credential Credential @relation(fields: [credentialId], references: [id])
+
+  @@unique([credentialId, version])
+  @@index([credentialId, effectiveFrom])
+}
+
+// ---------------------------------------------------------------------------
+// Multi-Credential Allocation (PRD-005)
+// ---------------------------------------------------------------------------
+
+model CpdAllocation {
+  id               String @id @default(cuid())
+  cpdRecordId      String
+  userCredentialId String
+  hours            Float
+
+  cpdRecord      CpdRecord      @relation(fields: [cpdRecordId], references: [id], onDelete: Cascade)
+  userCredential UserCredential @relation(fields: [userCredentialId], references: [id], onDelete: Cascade)
+
+  @@unique([cpdRecordId, userCredentialId])
+  @@index([userCredentialId])
 }
 
 // ---------------------------------------------------------------------------

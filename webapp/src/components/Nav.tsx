@@ -38,6 +38,18 @@ export function Nav() {
               >
                 Dashboard
               </a>
+              <a
+                href="/quizzes"
+                className="text-sm font-medium text-primary-200 hover:text-white transition"
+              >
+                Quizzes
+              </a>
+              <a
+                href="/settings"
+                className="text-sm font-medium text-primary-200 hover:text-white transition"
+              >
+                Settings
+              </a>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="cursor-pointer text-sm text-primary-300 hover:text-white transition active:text-primary-100"

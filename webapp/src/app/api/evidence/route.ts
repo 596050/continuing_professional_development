@@ -5,6 +5,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
 // GET /api/evidence - list evidence for authenticated user
+// Supports filtering: ?status=inbox&kind=certificate&cpdRecordId=xxx
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
@@ -17,14 +18,23 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const cpdRecordId = searchParams.get("cpdRecordId");
+    const status = searchParams.get("status");
+    const kind = searchParams.get("kind");
 
     const where: Record<string, unknown> = { userId: session.user.id };
     if (cpdRecordId) where.cpdRecordId = cpdRecordId;
+    if (status) where.status = status;
+    if (kind) where.kind = kind;
+
+    // By default, exclude deleted evidence
+    if (!status) {
+      where.status = { not: "deleted" };
+    }
 
     const evidence = await prisma.evidence.findMany({
       where,
       orderBy: { uploadedAt: "desc" },
-      take: 100,
+      take: 200,
     });
 
     return NextResponse.json({
@@ -34,7 +44,10 @@ export async function GET(req: NextRequest) {
         fileType: e.fileType,
         fileSize: e.fileSize,
         cpdRecordId: e.cpdRecordId,
+        kind: e.kind,
+        status: e.status,
         metadata: e.metadata ? JSON.parse(e.metadata) : null,
+        extractedMetadata: e.extractedMetadata ? JSON.parse(e.extractedMetadata) : null,
         uploadedAt: e.uploadedAt.toISOString(),
       })),
     });
@@ -47,6 +60,7 @@ export async function GET(req: NextRequest) {
 }
 
 // POST /api/evidence - upload evidence file
+// Supports optional `kind` field. If no cpdRecordId, goes to inbox.
 export async function POST(req: NextRequest) {
   try {
     const session = await auth();
@@ -61,6 +75,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const cpdRecordId = formData.get("cpdRecordId") as string | null;
     const metadataStr = formData.get("metadata") as string | null;
+    const kind = (formData.get("kind") as string) || "other";
 
     if (!file) {
       return NextResponse.json(
@@ -96,6 +111,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate kind
+    const validKinds = ["certificate", "transcript", "agenda", "screenshot", "other"];
+    if (!validKinds.includes(kind)) {
+      return NextResponse.json(
+        { error: `Invalid kind. Accepted: ${validKinds.join(", ")}` },
+        { status: 400 }
+      );
+    }
+
     // Validate CPD record belongs to user (if provided)
     if (cpdRecordId) {
       const record = await prisma.cpdRecord.findFirst({
@@ -109,7 +133,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate auto-naming convention: credential_date_title.ext
+    // Generate auto-naming convention
     const ext = path.extname(file.name) || ".pdf";
     const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
     const sanitized = file.name
@@ -134,6 +158,9 @@ export async function POST(req: NextRequest) {
     if (fileType.startsWith("image/")) detectedType = "image";
     else if (fileType === "text/plain") detectedType = "text";
 
+    // Determine status: if linked to a record, it's assigned; otherwise inbox
+    const evidenceStatus = cpdRecordId ? "assigned" : "inbox";
+
     // Save to database
     const evidence = await prisma.evidence.create({
       data: {
@@ -144,6 +171,8 @@ export async function POST(req: NextRequest) {
         fileSize: file.size,
         storageKey,
         metadata: metadataStr || null,
+        kind,
+        status: evidenceStatus,
       },
     });
 
@@ -154,6 +183,8 @@ export async function POST(req: NextRequest) {
         fileType: evidence.fileType,
         fileSize: evidence.fileSize,
         storageKey: evidence.storageKey,
+        kind: evidence.kind,
+        status: evidence.status,
         uploadedAt: evidence.uploadedAt.toISOString(),
       },
       { status: 201 }
