@@ -26,4 +26,4 @@ dist/
 
 # IDEs
 .vscode/
-.idea/
+.idea/e2e-recordings/
