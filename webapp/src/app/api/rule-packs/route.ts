@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/rule-packs - list rule packs, optionally filtered by credentialId
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(req.url);
     const credentialId = searchParams.get("credentialId");
@@ -36,27 +34,19 @@ export async function GET(req: NextRequest) {
         createdAt: p.createdAt.toISOString(),
       })),
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }
 
 // POST /api/rule-packs - create a new rule pack version (admin only)
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const limited = withRateLimit(req, "rule-pack-create", { windowMs: 60_000, max: 10 });
+    if (limited) return limited;
 
-    // Check admin role
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-    }
+    const session = await requireRole("admin");
+    if (session instanceof NextResponse) return session;
 
     const body = await req.json();
 
@@ -122,7 +112,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }

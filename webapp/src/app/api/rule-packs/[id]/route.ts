@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole, serverError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/rule-packs/[id] - get single rule pack
@@ -8,10 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -36,8 +34,8 @@ export async function GET(
       changelog: pack.changelog,
       createdAt: pack.createdAt.toISOString(),
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }
 
@@ -47,18 +45,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-    }
+    const session = await requireRole("admin");
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -93,8 +81,8 @@ export async function PUT(
       effectiveTo: updated.effectiveTo?.toISOString() ?? null,
       changelog: updated.changelog,
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }
 
@@ -104,18 +92,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { role: true },
-    });
-    if (!user || user.role !== "admin") {
-      return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-    }
+    const session = await requireRole("admin");
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -127,7 +105,7 @@ export async function DELETE(
     await prisma.credentialRulePack.delete({ where: { id } });
 
     return NextResponse.json({ deleted: true });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }

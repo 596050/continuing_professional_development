@@ -1,15 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import { evaluateCompletionRules } from "@/lib/completion";
 import { generateCertificateCode } from "@/lib/pdf";
 
 // GET /api/completion?cpdRecordId=xxx - Check completion status for a CPD record
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { searchParams } = new URL(request.url);
   const cpdRecordId = searchParams.get("cpdRecordId");
@@ -39,10 +37,11 @@ export async function GET(request: Request) {
 
 // POST /api/completion - Trigger certificate generation if all rules pass
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "completion-create", { windowMs: 60_000, max: 20 });
+  if (limited) return limited;
+
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const body = await request.json();
   const { cpdRecordId } = body;
@@ -97,7 +96,7 @@ export async function POST(request: Request) {
   });
 
   const certificateCode = generateCertificateCode();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.BASE_URL ?? "http://localhost:3000";
   const verificationUrl = `${baseUrl}/api/certificates/verify/${certificateCode}`;
 
   const certificate = await prisma.certificate.create({

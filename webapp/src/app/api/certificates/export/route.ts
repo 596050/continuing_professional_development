@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/certificates/export - Export certificates as CSV
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const certificates = await prisma.certificate.findMany({
     where: { userId: session.user.id, status: "active" },

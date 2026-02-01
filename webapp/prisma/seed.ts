@@ -312,6 +312,26 @@ async function main() {
   }
 
   console.log(`\nSeeded ${credentials.length} credentials.`);
+
+  // Seed transcript sources (PRD-002)
+  const transcriptSources = [
+    { code: "FINPRO_IAR_CE", name: "FinPro IAR CE Transcript", format: "csv" },
+    { code: "CFP_BOARD", name: "CFP Board CE Summary", format: "pdf" },
+    { code: "SIRCON_CE", name: "Sircon/Vertafore Insurance CE Transcript", format: "csv" },
+    { code: "CE_BROKER", name: "CE Broker Transcript Export", format: "csv" },
+    { code: "CME_PASSPORT", name: "CME Passport Transcript", format: "csv" },
+    { code: "NABP_CPE", name: "NABP CPE Monitor Transcript", format: "csv" },
+  ];
+
+  for (const src of transcriptSources) {
+    await prisma.externalTranscriptSource.upsert({
+      where: { code: src.code },
+      update: src,
+      create: src,
+    });
+    console.log(`  Seeded source: ${src.code}`);
+  }
+  console.log(`\nSeeded ${transcriptSources.length} transcript sources.`);
 }
 
 main()

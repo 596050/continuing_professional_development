@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // Map onboarding credential labels to database credential names
@@ -30,14 +30,11 @@ const JURISDICTION_MAP: Record<string, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const limited = withRateLimit(req, "onboarding", { windowMs: 60_000, max: 5 });
+    if (limited) return limited;
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const data = await req.json();
 
@@ -120,10 +117,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ id: submission.id, status: submission.status });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

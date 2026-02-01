@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -10,13 +10,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -56,11 +51,8 @@ export async function GET(
         { status: 404 }
       );
     }
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }
 
@@ -70,13 +62,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -165,11 +152,8 @@ export async function PATCH(
       metadata: updated.metadata,
       extractedMetadata: updated.extractedMetadata,
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }
 
@@ -179,13 +163,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -203,10 +182,7 @@ export async function DELETE(
     await prisma.evidence.delete({ where: { id } });
 
     return NextResponse.json({ deleted: true });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

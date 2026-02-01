@@ -32,9 +32,10 @@
  * the frontend to show retry state.
  */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, validationError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import { generateCertificateCode } from "@/lib/pdf";
+import { submitQuizAttemptSchema } from "@/lib/schemas";
 
 interface QuizQuestion {
   question: string;
@@ -48,10 +49,11 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "quiz-attempt", { windowMs: 60_000, max: 10 });
+  if (limited) return limited;
+
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const quiz = await prisma.quiz.findFirst({
@@ -79,14 +81,9 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { answers } = body;
-
-  if (!answers || !Array.isArray(answers)) {
-    return NextResponse.json(
-      { error: "answers array is required" },
-      { status: 400 }
-    );
-  }
+  const parsed = submitQuizAttemptSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
+  const { answers } = parsed.data;
 
   const questions: QuizQuestion[] = JSON.parse(quiz.questionsJson);
 
@@ -152,7 +149,7 @@ export async function POST(
     });
 
     const certificateCode = generateCertificateCode();
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+    const baseUrl = process.env.BASE_URL ?? "http://localhost:3000";
     const verificationUrl = `${baseUrl}/api/certificates/verify/${certificateCode}`;
 
     certificate = await prisma.certificate.create({

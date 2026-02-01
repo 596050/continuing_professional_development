@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // POST /api/activities/[id]/publish - Publish an activity (compliance approver or admin)
@@ -7,18 +7,8 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const activity = await prisma.activity.findUnique({

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/activities/[id] - Get single activity with credit mappings
@@ -7,10 +7,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const activity = await prisma.activity.findFirst({
@@ -85,18 +83,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const activity = await prisma.activity.findUnique({ where: { id } });
@@ -145,18 +133,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || user.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin");
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   await prisma.activity.update({

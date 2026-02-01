@@ -20,6 +20,7 @@ export function Alert({
 }) {
   return (
     <div
+      role={variant === "error" || variant === "warning" ? "alert" : "status"}
       className={`rounded-lg border p-3 text-sm ${variants[variant]} ${className}`}
     >
       {children}

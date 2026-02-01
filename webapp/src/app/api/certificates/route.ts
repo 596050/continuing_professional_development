@@ -1,18 +1,17 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, validationError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import {
   generateCertificatePdf,
   generateCertificateCode,
   CertificateInfo,
 } from "@/lib/pdf";
+import { createCertificateSchema } from "@/lib/schemas";
 
 // GET /api/certificates - List certificates for authenticated user
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get("search");
@@ -47,20 +46,17 @@ export async function GET(request: Request) {
 
 // POST /api/certificates - Generate a new certificate
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "certificate-create", { windowMs: 60_000, max: 20 });
+  if (limited) return limited;
+
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const body = await request.json();
-  const { cpdRecordId, title, hours, category, activityType, provider, completedDate, quizScore } = body;
+  const parsed = createCertificateSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
 
-  if (!title || hours === undefined || !completedDate) {
-    return NextResponse.json(
-      { error: "title, hours, and completedDate are required" },
-      { status: 400 }
-    );
-  }
+  const { cpdRecordId, title, hours, category, activityType, provider, completedDate, quizScore } = { ...parsed.data, quizScore: body.quizScore };
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -87,7 +83,7 @@ export async function POST(request: Request) {
   }
 
   const certificateCode = generateCertificateCode();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000";
+  const baseUrl = process.env.BASE_URL ?? "http://localhost:3000";
   const verificationUrl = `${baseUrl}/api/certificates/verify/${certificateCode}`;
 
   const primaryCredential = user.credentials[0]?.credential;

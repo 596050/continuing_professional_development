@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, validationError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { updateCertificateSchema } from "@/lib/schemas";
 
 // GET /api/certificates/[id] - Get single certificate
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const certificate = await prisma.certificate.findFirst({
@@ -32,10 +31,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const certificate = await prisma.certificate.findFirst({
@@ -50,14 +47,9 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const { status } = body;
-
-  if (status && !["active", "revoked"].includes(status)) {
-    return NextResponse.json(
-      { error: "Status must be active or revoked" },
-      { status: 400 }
-    );
-  }
+  const parsed = updateCertificateSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
+  const { status } = parsed.data;
 
   const updated = await prisma.certificate.update({
     where: { id },
@@ -72,10 +64,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const certificate = await prisma.certificate.findFirst({

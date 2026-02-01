@@ -33,6 +33,8 @@ model User {
   analyticsEvents AnalyticsEvent[]
   certificates  Certificate[]
   quizAttempts  QuizAttempt[]
+  transcriptImports ExternalTranscriptImport[]
+  ingestionAddress  IngestionAddress?
 
   // Firm membership
   firmId        String?
@@ -126,25 +128,29 @@ model UserCredential {
 // ---------------------------------------------------------------------------
 
 model CpdRecord {
-  id              String   @id @default(cuid())
-  userId          String
-  title           String
-  provider        String?
-  activityType    String   // structured | unstructured | participatory | verifiable | non-verifiable
-  hours           Float
-  date            DateTime
-  status          String   @default("completed") // completed | in_progress | planned | upcoming
-  category        String?  // ethics | technical | general | firm_element | etc.
-  learningOutcome String?
-  notes           String?
-  externalId      String?  // ID from external provider system
-  source          String   @default("manual") // manual | auto | import | platform
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                String   @id @default(cuid())
+  userId            String
+  title             String
+  provider          String?
+  activityType      String   // structured | unstructured | participatory | verifiable | non-verifiable
+  hours             Float
+  date              DateTime
+  status            String   @default("completed") // completed | in_progress | planned | upcoming
+  category          String?  // ethics | technical | general | firm_element | etc.
+  learningOutcome   String?
+  notes             String?
+  externalId        String?  // ID from external provider system
+  source            String   @default("manual") // manual | auto | import | platform
+  evidenceStrength  String   @default("manual_only") // manual_only | url_only | certificate_attached | provider_verified
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   evidence    Evidence[]
   allocations CpdAllocation[]
+
+  @@index([userId, status])
+  @@index([userId, date])
 }
 
 model Evidence {
@@ -166,6 +172,7 @@ model Evidence {
   cpdRecord CpdRecord? @relation(fields: [cpdRecordId], references: [id])
 
   @@index([userId, status])
+  @@index([cpdRecordId])
 }
 
 // ---------------------------------------------------------------------------
@@ -345,6 +352,7 @@ model QuizAttempt {
   quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
 
   @@index([userId, quizId])
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
@@ -453,6 +461,107 @@ model CpdAllocation {
 
   @@unique([cpdRecordId, userCredentialId])
   @@index([userCredentialId])
+}
+
+// ---------------------------------------------------------------------------
+// Transcript Import Hub (PRD-002)
+// ---------------------------------------------------------------------------
+
+model ExternalTranscriptSource {
+  id        String @id @default(cuid())
+  code      String @unique  // FINPRO_IAR_CE, CFP_BOARD, SIRCON_CE, CE_BROKER, CME_PASSPORT, NABP_CPE
+  name      String          // Human-readable name
+  format    String @default("csv") // csv | pdf
+  active    Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  imports   ExternalTranscriptImport[]
+}
+
+model ExternalTranscriptImport {
+  id          String    @id @default(cuid())
+  userId      String
+  sourceId    String
+  evidenceId  String?   // optional link to uploaded evidence file
+  status      String    @default("parsed") // uploaded | parsed | needs_review | imported | failed
+  parsed      String    // JSON array of parsed entries
+  mapping     String?   // JSON: user-selected credential/category mappings
+  importedAt  DateTime?
+  errorLog    String?   // JSON: any parsing errors
+  createdAt   DateTime  @default(now())
+
+  user   User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  source ExternalTranscriptSource @relation(fields: [sourceId], references: [id])
+
+  @@index([userId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Email Forwarding Ingestion (PRD-006)
+// ---------------------------------------------------------------------------
+
+model IngestionAddress {
+  id      String  @id @default(cuid())
+  userId  String  @unique
+  address String  @unique // e.g. user123@ingest.auditreadycpd.com
+  active  Boolean @default(true)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Provider Verified Events (PRD-007)
+// ---------------------------------------------------------------------------
+
+model ProviderTenant {
+  id          String  @id @default(cuid())
+  name        String
+  apiKeyHash  String  // bcrypt hash of API key
+  contactEmail String?
+  active      Boolean @default(true)
+  createdAt   DateTime @default(now())
+
+  events CompletionEvent[]
+}
+
+model CompletionEvent {
+  id               String   @id @default(cuid())
+  providerId       String
+  userId           String?  // matched user (null if not yet matched)
+  externalUserRef  String?  // provider's identifier for the user (email or ID)
+  activityTitle    String
+  hours            Float
+  category         String?
+  completedAt      DateTime
+  payload          String   // JSON: full event data
+  idempotencyKey   String   @unique
+  status           String   @default("pending") // pending | matched | applied | failed
+  cpdRecordId      String?  // created CPD record (after apply)
+  createdAt        DateTime @default(now())
+
+  provider ProviderTenant @relation(fields: [providerId], references: [id])
+
+  @@index([providerId, createdAt])
+  @@index([externalUserRef])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String   // deadline_warning | evidence_match | import_complete | certificate_issued | plan_upgraded | general
+  title     String
+  message   String?
+  link      String?  // optional deep link (e.g. /evidence, /dashboard)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }
 
 // ---------------------------------------------------------------------------

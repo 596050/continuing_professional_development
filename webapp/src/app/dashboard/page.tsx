@@ -47,6 +47,7 @@ interface DashboardData {
     status: string;
     category: string | null;
     source: string;
+  evidenceStrength?: string;
   }[];
 }
 
@@ -103,7 +104,18 @@ export default function DashboardPage() {
   const [uploadRecordId, setUploadRecordId] = useState("");
   const [uploadSaving, setUploadSaving] = useState(false);
   const [uploadError, setUploadError] = useState("");
-  const [exporting, setExporting] = useState<"pdf" | "csv" | null>(null);
+  const [exporting, setExporting] = useState<"pdf" | "csv" | "zip" | null>(null);
+  const [showAuditPack, setShowAuditPack] = useState(false);
+  const [auditMinStrength, setAuditMinStrength] = useState("manual_only");
+  const [auditFrom, setAuditFrom] = useState("");
+  const [auditTo, setAuditTo] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  // Allocation modal
+  const [allocRecordId, setAllocRecordId] = useState<string | null>(null);
+  const [allocations, setAllocations] = useState<{ userCredentialId: string; hours: number; credentialName: string }[]>([]);
+  const [userCredentials, setUserCredentials] = useState<{ id: string; credentialName: string }[]>([]);
+  const [allocSaving, setAllocSaving] = useState(false);
   const isDemo = !session?.user && features.DEMO_MODE;
 
   const fetchDashboard = useCallback(async () => {
@@ -208,6 +220,86 @@ export default function DashboardPage() {
     }
   };
 
+  const handleAuditPackExport = async () => {
+    setExporting("zip");
+    try {
+      const params = new URLSearchParams();
+      if (auditMinStrength) params.set("minStrength", auditMinStrength);
+      if (auditFrom) params.set("from", auditFrom);
+      if (auditTo) params.set("to", auditTo);
+      const res = await fetch(`/api/export/audit-pack?${params}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `audit-pack-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(a.href);
+      setShowAuditPack(false);
+    } catch {
+      // Could add toast notification
+    } finally {
+      setExporting(null);
+    }
+  };
+
+  const handleOpenAllocations = async (recordId: string) => {
+    setAllocRecordId(recordId);
+    try {
+      const [allocRes, settingsRes] = await Promise.all([
+        fetch(`/api/allocations?cpdRecordId=${recordId}`).then((r) => r.ok ? r.json() : { allocations: [] }),
+        fetch("/api/settings").then((r) => r.ok ? r.json() : { credentials: [] }),
+      ]);
+      const creds = (settingsRes.credentials ?? []).map((c: { id: string; name: string }) => ({
+        id: c.id,
+        credentialName: c.name,
+      }));
+      setUserCredentials(creds);
+      const existing = (allocRes.allocations ?? []).map((a: { userCredentialId: string; hours: number; credentialName: string }) => ({
+        userCredentialId: a.userCredentialId,
+        hours: a.hours,
+        credentialName: a.credentialName,
+      }));
+      if (existing.length > 0) {
+        setAllocations(existing);
+      } else if (creds.length > 0) {
+        // Default: allocate all hours to first credential
+        const record = allActivities.find((a) => a.id === recordId);
+        setAllocations([{ userCredentialId: creds[0].id, hours: record?.hours ?? 0, credentialName: creds[0].credentialName }]);
+      }
+    } catch {
+      // Silently fail
+    }
+  };
+
+  const handleSaveAllocations = async () => {
+    if (!allocRecordId) return;
+    setAllocSaving(true);
+    try {
+      const res = await fetch("/api/allocations", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cpdRecordId: allocRecordId,
+          allocations: allocations.map((a) => ({
+            userCredentialId: a.userCredentialId,
+            hours: a.hours,
+          })),
+        }),
+      });
+      if (res.ok) {
+        setAllocRecordId(null);
+        setAllocations([]);
+      }
+    } catch {
+      // Silently fail
+    } finally {
+      setAllocSaving(false);
+    }
+  };
+
   if (authStatus === "loading" || loading) return <Spinner text="Loading dashboard..." />;
 
   if (!session?.user && !isDemo) {
@@ -236,7 +328,12 @@ export default function DashboardPage() {
     );
   }
 
-  const { user, credential, progress, deadline, activities } = data;
+  const { user, credential, progress, deadline, activities: allActivities } = data;
+  const activities = allActivities.filter((a) => {
+    if (searchQuery && !a.title.toLowerCase().includes(searchQuery.toLowerCase()) && !a.provider?.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
+    return true;
+  });
   const hoursRemaining = Math.max(0, progress.hoursRequired - progress.totalHoursCompleted);
 
   // Color coding based on deadline proximity
@@ -343,11 +440,33 @@ export default function DashboardPage() {
           {/* Activities */}
           <div className="lg:col-span-2">
             <Card padding="sm" className="p-0">
-              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
-                <h2 className="text-lg font-semibold text-gray-900">CPD Activities</h2>
-                {!isDemo && (
-                  <Button onClick={() => setShowLogForm(true)}>+ Log activity</Button>
-                )}
+              <div className="border-b border-gray-100 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-semibold text-gray-900">CPD Activities</h2>
+                  {!isDemo && (
+                    <Button onClick={() => setShowLogForm(true)}>+ Log activity</Button>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="Search activities..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                  />
+                  {["all", "general", "ethics", "technical"].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium capitalize transition ${
+                        categoryFilter === cat ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {activities.length === 0 ? (
@@ -360,12 +479,18 @@ export default function DashboardPage() {
               ) : (
                 <div className="divide-y divide-gray-100">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-center justify-between px-6 py-4 cursor-pointer transition-colors hover:bg-gray-50">
+                    <div key={activity.id} className="flex items-center justify-between px-6 py-4 cursor-pointer transition-colors hover:bg-gray-50" onClick={() => !isDemo && handleOpenAllocations(activity.id)}>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{activity.title}</span>
                           {activity.category === "ethics" && (
                             <Badge variant="purple" shape="rounded">ethics</Badge>
+                          )}
+                          {activity.source === "auto" && (
+                            <Badge variant="green" shape="rounded">verified</Badge>
+                          )}
+                          {activity.evidenceStrength === "provider_verified" && activity.source !== "auto" && (
+                            <Badge variant="blue" shape="rounded">provider verified</Badge>
                           )}
                         </div>
                         <div className="mt-1 flex items-center gap-3 text-xs text-gray-500">
@@ -469,6 +594,15 @@ export default function DashboardPage() {
                 >
                   {exporting === "csv" ? "Exporting..." : "Export audit report (CSV)"}
                 </Button>
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  className="justify-start"
+                  onClick={() => setShowAuditPack(true)}
+                  disabled={isDemo}
+                >
+                  Export audit pack (ZIP)
+                </Button>
                 {!isDemo && (
                   <Button variant="secondary" fullWidth className="justify-start" onClick={() => setShowUploadForm(true)}>
                     Upload evidence
@@ -510,6 +644,36 @@ export default function DashboardPage() {
           </Button>
           <Button onClick={handleUploadEvidence} disabled={uploadSaving || !uploadFile}>
             {uploadSaving ? "Uploading..." : "Upload"}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Audit Pack Modal */}
+      <Modal open={showAuditPack} onClose={() => setShowAuditPack(false)}>
+        <ModalHeader title="Export Audit Pack" onClose={() => setShowAuditPack(false)} />
+        <ModalBody>
+          <p className="text-sm text-gray-600">
+            Download a ZIP containing your transcript PDF, activity CSV, summary, and all evidence files.
+          </p>
+          <Select
+            label="Minimum evidence strength"
+            value={auditMinStrength}
+            onChange={(e) => setAuditMinStrength(e.target.value)}
+          >
+            <option value="manual_only">All records (manual and above)</option>
+            <option value="url_only">URL verified and above</option>
+            <option value="certificate_attached">Certificate attached and above</option>
+            <option value="provider_verified">Provider verified only</option>
+          </Select>
+          <div className="grid grid-cols-2 gap-4">
+            <Input label="From date" type="date" value={auditFrom} onChange={(e) => setAuditFrom(e.target.value)} />
+            <Input label="To date" type="date" value={auditTo} onChange={(e) => setAuditTo(e.target.value)} />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => setShowAuditPack(false)}>Cancel</Button>
+          <Button onClick={handleAuditPackExport} disabled={exporting === "zip"}>
+            {exporting === "zip" ? "Generating..." : "Download audit pack"}
           </Button>
         </ModalFooter>
       </Modal>
@@ -606,6 +770,100 @@ export default function DashboardPage() {
           </Button>
           <Button onClick={handleLogActivity} disabled={logSaving || !logForm.title || !logForm.hours || !logForm.date}>
             {logSaving ? "Saving..." : "Log activity"}
+          </Button>
+        </ModalFooter>
+      </Modal>
+
+      {/* Allocation Modal */}
+      <Modal open={!!allocRecordId} onClose={() => { setAllocRecordId(null); setAllocations([]); }}>
+        <ModalHeader title="Allocate Hours" onClose={() => { setAllocRecordId(null); setAllocations([]); }} />
+        <ModalBody>
+          {(() => {
+            const record = allActivities.find((a) => a.id === allocRecordId);
+            if (!record) return null;
+            const totalAllocated = allocations.reduce((s, a) => s + a.hours, 0);
+            return (
+              <div className="space-y-4">
+                <div className="text-sm">
+                  <span className="font-medium text-gray-900">{record.title}</span>
+                  <span className="ml-2 text-gray-500">{record.hours}h total</span>
+                </div>
+                {userCredentials.length === 0 ? (
+                  <Alert variant="info">No credentials configured. Complete onboarding first.</Alert>
+                ) : (
+                  <>
+                    {allocations.map((alloc, i) => (
+                      <div key={i} className="flex items-center gap-3">
+                        <Select
+                          label={i === 0 ? "Credential" : ""}
+                          value={alloc.userCredentialId}
+                          onChange={(e) => {
+                            const updated = [...allocations];
+                            const cred = userCredentials.find((c) => c.id === e.target.value);
+                            updated[i] = { ...alloc, userCredentialId: e.target.value, credentialName: cred?.credentialName ?? "" };
+                            setAllocations(updated);
+                          }}
+                        >
+                          {userCredentials.map((c) => (
+                            <option key={c.id} value={c.id}>{c.credentialName}</option>
+                          ))}
+                        </Select>
+                        <Input
+                          label={i === 0 ? "Hours" : ""}
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          max={String(record.hours)}
+                          value={String(alloc.hours)}
+                          onChange={(e) => {
+                            const updated = [...allocations];
+                            updated[i] = { ...alloc, hours: parseFloat(e.target.value) || 0 };
+                            setAllocations(updated);
+                          }}
+                        />
+                        {allocations.length > 1 && (
+                          <button
+                            onClick={() => setAllocations(allocations.filter((_, j) => j !== i))}
+                            className="mt-5 text-sm text-red-500 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {userCredentials.length > allocations.length && (
+                      <button
+                        onClick={() => {
+                          const used = new Set(allocations.map((a) => a.userCredentialId));
+                          const next = userCredentials.find((c) => !used.has(c.id));
+                          if (next) {
+                            setAllocations([...allocations, { userCredentialId: next.id, hours: 0, credentialName: next.credentialName }]);
+                          }
+                        }}
+                        className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                      >
+                        + Add credential
+                      </button>
+                    )}
+                    <div className="text-xs text-gray-500">
+                      Allocated: {totalAllocated}h / {record.hours}h
+                      {totalAllocated > record.hours && (
+                        <span className="ml-2 text-red-500">Exceeds record hours</span>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })()}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="secondary" onClick={() => { setAllocRecordId(null); setAllocations([]); }}>Cancel</Button>
+          <Button
+            onClick={handleSaveAllocations}
+            disabled={allocSaving || allocations.reduce((s, a) => s + a.hours, 0) <= 0}
+          >
+            {allocSaving ? "Saving..." : "Save allocations"}
           </Button>
         </ModalFooter>
       </Modal>

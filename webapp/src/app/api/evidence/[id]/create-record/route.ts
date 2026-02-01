@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // POST /api/evidence/[id]/create-record - create a CPD record from inbox evidence
@@ -8,13 +8,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const limited = withRateLimit(req, "evidence-create-record", { windowMs: 60_000, max: 20 });
+    if (limited) return limited;
+
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { id } = await params;
 
@@ -97,10 +95,7 @@ export async function POST(
       },
       { status: 201 }
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

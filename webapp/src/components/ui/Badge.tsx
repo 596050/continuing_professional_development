@@ -58,8 +58,10 @@ export function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <Badge variant={map[status] ?? "gray"} shape="pill" className="px-2.5 py-1">
-      {status === "in_progress" ? "in progress" : status}
-    </Badge>
+    <span role="status">
+      <Badge variant={map[status] ?? "gray"} shape="pill" className="px-2.5 py-1">
+        {status === "in_progress" ? "in progress" : status}
+      </Badge>
+    </span>
   );
 }

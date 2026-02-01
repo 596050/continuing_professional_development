@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole, validationError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { updateQuizSchema } from "@/lib/schemas";
 
 // GET /api/quizzes/[id] - Get quiz details with questions (no answers)
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const quiz = await prisma.quiz.findFirst({
@@ -62,18 +61,8 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const quiz = await prisma.quiz.findUnique({ where: { id } });
@@ -82,18 +71,22 @@ export async function PATCH(
   }
 
   const body = await request.json();
-  const updates: Record<string, unknown> = {};
+  const parsed = updateQuizSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
 
-  if (body.title !== undefined) updates.title = body.title;
-  if (body.description !== undefined) updates.description = body.description;
-  if (body.passMark !== undefined) updates.passMark = body.passMark;
-  if (body.maxAttempts !== undefined) updates.maxAttempts = body.maxAttempts;
-  if (body.timeLimit !== undefined) updates.timeLimit = body.timeLimit;
-  if (body.hours !== undefined) updates.hours = body.hours;
-  if (body.category !== undefined) updates.category = body.category;
-  if (body.activityType !== undefined) updates.activityType = body.activityType;
-  if (body.questionsJson !== undefined) updates.questionsJson = body.questionsJson;
-  if (body.active !== undefined) updates.active = body.active;
+  const updates: Record<string, unknown> = {};
+  const data = parsed.data;
+
+  if (data.title !== undefined) updates.title = data.title;
+  if (data.description !== undefined) updates.description = data.description;
+  if (data.passMark !== undefined) updates.passMark = data.passMark;
+  if (data.maxAttempts !== undefined) updates.maxAttempts = data.maxAttempts;
+  if (data.timeLimit !== undefined) updates.timeLimit = data.timeLimit;
+  if (data.hours !== undefined) updates.hours = data.hours;
+  if (data.category !== undefined) updates.category = data.category;
+  if (data.activityType !== undefined) updates.activityType = data.activityType;
+  if (data.questionsJson !== undefined) updates.questionsJson = data.questionsJson;
+  if (data.active !== undefined) updates.active = data.active;
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -121,18 +114,8 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const quiz = await prisma.quiz.findUnique({ where: { id } });

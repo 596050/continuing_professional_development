@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/rule-packs/resolve?credentialId=xxx&date=2026-01-15
@@ -7,10 +7,8 @@ import { prisma } from "@/lib/db";
 // If no date is provided, returns the currently active pack.
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(req.url);
     const credentialId = searchParams.get("credentialId");
@@ -79,7 +77,7 @@ export async function GET(req: NextRequest) {
       effectiveFrom: matching.effectiveFrom.toISOString(),
       effectiveTo: matching.effectiveTo?.toISOString() ?? null,
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }

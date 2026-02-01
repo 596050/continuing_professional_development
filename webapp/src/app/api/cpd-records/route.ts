@@ -1,23 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, apiError, validationError, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { createCpdRecordSchema, parsePagination } from "@/lib/schemas";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const { searchParams } = new URL(req.url);
+    const { limit, skip } = parsePagination(searchParams);
 
-    const records = await prisma.cpdRecord.findMany({
-      where: { userId: session.user.id },
-      orderBy: { date: "desc" },
-      take: 100,
-    });
+    const [records, total] = await Promise.all([
+      prisma.cpdRecord.findMany({
+        where: { userId: session.user.id },
+        orderBy: { date: "desc" },
+        take: limit,
+        skip,
+      }),
+      prisma.cpdRecord.count({ where: { userId: session.user.id } }),
+    ]);
 
     return NextResponse.json({
       records: records.map((r) => ({
@@ -32,44 +34,31 @@ export async function GET() {
         learningOutcome: r.learningOutcome,
         notes: r.notes,
         source: r.source,
+        evidenceStrength: r.evidenceStrength,
         createdAt: r.createdAt.toISOString(),
       })),
+      total,
+      page: Math.floor(skip / limit) + 1,
+      limit,
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const limited = withRateLimit(req, "cpd-records-create", { windowMs: 60_000, max: 30 });
+    if (limited) return limited;
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
-    const data = await req.json();
+    const body = await req.json();
+    const parsed = createCpdRecordSchema.safeParse(body);
+    if (!parsed.success) return validationError(parsed.error);
 
-    // Validate required fields
-    if (!data.title || !data.hours || !data.date || !data.activityType) {
-      return NextResponse.json(
-        { error: "Title, hours, date, and activity type are required" },
-        { status: 400 }
-      );
-    }
-
-    if (data.hours <= 0 || data.hours > 100) {
-      return NextResponse.json(
-        { error: "Hours must be between 0 and 100" },
-        { status: 400 }
-      );
-    }
+    const data = parsed.data;
 
     const record = await prisma.cpdRecord.create({
       data: {
@@ -77,10 +66,10 @@ export async function POST(req: NextRequest) {
         title: data.title,
         provider: data.provider || null,
         activityType: data.activityType,
-        hours: parseFloat(data.hours),
-        date: new Date(data.date),
-        status: data.status || "completed",
-        category: data.category || "general",
+        hours: data.hours,
+        date: data.date,
+        status: data.status,
+        category: data.category,
         learningOutcome: data.learningOutcome || null,
         notes: data.notes || null,
         source: "manual",
@@ -93,10 +82,7 @@ export async function POST(req: NextRequest) {
       hours: record.hours,
       date: record.date.toISOString(),
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

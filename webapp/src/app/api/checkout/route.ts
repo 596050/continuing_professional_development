@@ -1,19 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { stripe, PLANS } from "@/lib/stripe";
+import { requireAuth, serverError, withRateLimit } from "@/lib/api-utils";
+import { getStripe, PLANS } from "@/lib/stripe";
 import { prisma } from "@/lib/db";
 import type { PlanKey } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
+    const limited = withRateLimit(req, "checkout", { windowMs: 60_000, max: 5 });
+    if (limited) return limited;
 
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { plan } = (await req.json()) as { plan: PlanKey };
 
@@ -25,7 +22,7 @@ export async function POST(req: NextRequest) {
     }
 
     const selectedPlan = PLANS[plan];
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const appUrl = process.env.BASE_URL || "http://localhost:3000";
 
     // Get or create Stripe customer
     const user = await prisma.user.findUnique({
@@ -35,7 +32,7 @@ export async function POST(req: NextRequest) {
     let customerId = user?.stripeCustomerId;
 
     if (!customerId) {
-      const customer = await stripe.customers.create({
+      const customer = await getStripe().customers.create({
         email: session.user.email || undefined,
         name: session.user.name || undefined,
         metadata: {
@@ -52,7 +49,7 @@ export async function POST(req: NextRequest) {
     // Create checkout session
     const isSubscription = selectedPlan.interval !== "one_time";
 
-    const checkoutSession = await stripe.checkout.sessions.create({
+    const checkoutSession = await getStripe().checkout.sessions.create({
       customer: customerId,
       mode: isSubscription ? "subscription" : "payment",
       line_items: [
@@ -92,11 +89,7 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({ url: checkoutSession.url });
-  } catch (error) {
-    console.error("Checkout error:", error);
-    return NextResponse.json(
-      { error: "Failed to create checkout session" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

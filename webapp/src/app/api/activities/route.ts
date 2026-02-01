@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole, validationError, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { createActivitySchema } from "@/lib/schemas";
 
 // GET /api/activities - List activities (published for users, all for admins)
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
@@ -64,20 +63,25 @@ export async function GET(request: Request) {
 
 // POST /api/activities - Create a new activity (admin/publisher only)
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "activity-create", { windowMs: 60_000, max: 20 });
+  if (limited) return limited;
+
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { role: true, firmId: true },
   });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const body = await request.json();
+  const parsed = createActivitySchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
+
   const {
     type,
     title,
@@ -87,33 +91,10 @@ export async function POST(request: Request) {
     learningObjectives,
     tags,
     jurisdictions,
-    evidencePolicy,
-    deliveryUrl,
-    deliveryMeta,
-    quizId,
     creditMappings,
-  } = body;
+  } = parsed.data;
 
-  if (!type || !title) {
-    return NextResponse.json(
-      { error: "type and title are required" },
-      { status: 400 }
-    );
-  }
-
-  const validTypes = [
-    "live_webinar",
-    "on_demand_video",
-    "article",
-    "assessment_only",
-    "bundle",
-  ];
-  if (!validTypes.includes(type)) {
-    return NextResponse.json(
-      { error: `type must be one of: ${validTypes.join(", ")}` },
-      { status: 400 }
-    );
-  }
+  const { evidencePolicy, deliveryUrl, deliveryMeta, quizId } = body;
 
   const activity = await prisma.activity.create({
     data: {

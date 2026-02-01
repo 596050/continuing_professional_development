@@ -8,10 +8,12 @@ export function TabNav<T extends string>({
   onChange: (key: T) => void;
 }) {
   return (
-    <div className="flex gap-1 border-b border-gray-200">
+    <div className="flex gap-1 border-b border-gray-200" role="tablist">
       {tabs.map((t) => (
         <button
           key={t.key}
+          role="tab"
+          aria-selected={active === t.key}
           onClick={() => onChange(t.key)}
           className={`cursor-pointer border-b-2 px-4 py-2.5 text-sm font-medium transition ${
             active === t.key

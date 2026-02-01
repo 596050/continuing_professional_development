@@ -24,19 +24,13 @@
  *   User -> Evidence (count) -> certificate count
  */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
-    const session = await auth();
-
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const userId = session.user.id;
 
@@ -165,12 +159,10 @@ export async function GET() {
         status: r.status,
         category: r.category,
         source: r.source,
+        evidenceStrength: r.evidenceStrength,
       })),
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

@@ -1,31 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, apiError, validationError, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { createReminderSchema, parsePagination } from "@/lib/schemas";
 
-// GET /api/reminders - list reminders for authenticated user
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status"); // pending | sent | dismissed
-    const type = searchParams.get("type"); // deadline | progress | custom
+    const status = searchParams.get("status");
+    const type = searchParams.get("type");
+    const { limit, skip } = parsePagination(searchParams);
 
     const where: Record<string, unknown> = { userId: session.user.id };
     if (status) where.status = status;
     if (type) where.type = type;
 
-    const reminders = await prisma.reminder.findMany({
-      where,
-      orderBy: { triggerDate: "asc" },
-      take: 50,
-    });
+    const [reminders, total] = await Promise.all([
+      prisma.reminder.findMany({
+        where,
+        orderBy: { triggerDate: "asc" },
+        take: limit,
+        skip,
+      }),
+      prisma.reminder.count({ where }),
+    ]);
 
     return NextResponse.json({
       reminders: reminders.map((r) => ({
@@ -41,87 +41,47 @@ export async function GET(req: NextRequest) {
         createdAt: r.createdAt.toISOString(),
         sentAt: r.sentAt?.toISOString() ?? null,
       })),
+      total,
+      page: Math.floor(skip / limit) + 1,
+      limit,
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }
 
-// POST /api/reminders - create a new reminder
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const limited = withRateLimit(req, "reminder-create", { windowMs: 60_000, max: 30 });
+    if (limited) return limited;
+
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const body = await req.json();
-    const { type, title, message, triggerDate, channel, credentialId, metadata } = body;
+    const parsed = createReminderSchema.safeParse(body);
+    if (!parsed.success) return validationError(parsed.error);
 
-    // Validate required fields
-    if (!type || !title || !triggerDate) {
-      return NextResponse.json(
-        { error: "type, title, and triggerDate are required" },
-        { status: 400 }
-      );
-    }
-
-    // Validate type
-    const validTypes = ["deadline", "progress", "custom"];
-    if (!validTypes.includes(type)) {
-      return NextResponse.json(
-        { error: `type must be one of: ${validTypes.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate channel
-    const validChannels = ["email", "calendar", "both"];
-    if (channel && !validChannels.includes(channel)) {
-      return NextResponse.json(
-        { error: `channel must be one of: ${validChannels.join(", ")}` },
-        { status: 400 }
-      );
-    }
-
-    // Validate triggerDate is in the future
-    const triggerDateParsed = new Date(triggerDate);
-    if (isNaN(triggerDateParsed.getTime())) {
-      return NextResponse.json(
-        { error: "triggerDate must be a valid date" },
-        { status: 400 }
-      );
-    }
+    const data = parsed.data;
 
     // Validate credentialId belongs to user (if provided)
-    if (credentialId) {
+    if (data.credentialId) {
       const userCred = await prisma.userCredential.findFirst({
-        where: { userId: session.user.id, credentialId },
+        where: { userId: session.user.id, credentialId: data.credentialId },
       });
-      if (!userCred) {
-        return NextResponse.json(
-          { error: "Credential not found for this user" },
-          { status: 404 }
-        );
-      }
+      if (!userCred) return apiError("Credential not found for this user", 404);
     }
 
     const reminder = await prisma.reminder.create({
       data: {
         userId: session.user.id,
-        type,
-        title,
-        message: message ?? null,
-        triggerDate: triggerDateParsed,
-        channel: channel ?? "email",
-        credentialId: credentialId ?? null,
-        metadata: metadata ? JSON.stringify(metadata) : null,
+        type: data.type,
+        title: data.title,
+        message: data.message ?? null,
+        triggerDate: data.triggerDate,
+        channel: data.channel,
+        credentialId: data.credentialId ?? null,
+        metadata: data.metadata ? JSON.stringify(data.metadata) : null,
       },
     });
 
@@ -139,10 +99,7 @@ export async function POST(req: NextRequest) {
       },
       { status: 201 }
     );
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }

@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/allocations?cpdRecordId=xxx - get allocations for a CPD record
 // GET /api/allocations?userCredentialId=xxx - get allocations for a user credential
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(req.url);
     const cpdRecordId = searchParams.get("cpdRecordId");
@@ -57,8 +55,8 @@ export async function GET(req: NextRequest) {
         credentialBody: a.userCredential.credential.body,
       })),
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }
 
@@ -68,10 +66,11 @@ export async function GET(req: NextRequest) {
 // Validates: sum of allocated hours <= record.hours
 export async function PUT(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
-    }
+    const limited = withRateLimit(req, "allocations-save", { windowMs: 60_000, max: 30 });
+    if (limited) return limited;
+
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const body = await req.json();
 
@@ -170,7 +169,7 @@ export async function PUT(req: NextRequest) {
       recordHours: record.hours,
       unallocated: record.hours - totalAllocated,
     });
-  } catch {
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  } catch (err) {
+    return serverError(err);
   }
 }

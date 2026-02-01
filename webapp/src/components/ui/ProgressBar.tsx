@@ -35,7 +35,14 @@ export function ProgressBar({
           </span>
         </div>
       )}
-      <div className={`${label ? "mt-2 " : ""}${h} rounded-full bg-gray-200`}>
+      <div
+        className={`${label ? "mt-2 " : ""}${h} rounded-full bg-gray-200`}
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={label ?? "Progress"}
+      >
         <div
           className={`${h} rounded-full ${bar} transition-all`}
           style={{ width: `${pct}%` }}

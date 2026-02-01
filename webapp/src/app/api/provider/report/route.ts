@@ -24,23 +24,22 @@
  * - Optional date range filter on all metrics
  */
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireRole } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 
 // GET /api/provider/report - Provider reporting dashboard data
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
-  // Only admins and firm admins can access provider reports
+  // Role check already done by requireRole
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
     select: { role: true, firmId: true },
   });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
   }
 
   const { searchParams } = new URL(request.url);

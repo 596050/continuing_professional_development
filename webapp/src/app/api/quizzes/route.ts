@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, requireRole, validationError, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
+import { createQuizSchema } from "@/lib/schemas";
 
 // GET /api/quizzes - List available quizzes
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { searchParams } = new URL(request.url);
   const credentialId = searchParams.get("credentialId");
@@ -71,21 +70,16 @@ export async function GET(request: Request) {
 
 // POST /api/quizzes - Create a new quiz (admin only)
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "quiz-create", { windowMs: 60_000, max: 10 });
+  if (limited) return limited;
 
-  // Check admin role
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { role: true },
-  });
-  if (!user || !["admin", "firm_admin"].includes(user.role)) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const session = await requireRole("admin", "firm_admin");
+  if (session instanceof NextResponse) return session;
 
   const body = await request.json();
+  const parsed = createQuizSchema.safeParse(body);
+  if (!parsed.success) return validationError(parsed.error);
+
   const {
     title,
     description,
@@ -97,30 +91,7 @@ export async function POST(request: Request) {
     hours,
     category,
     questions,
-  } = body;
-
-  if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
-    return NextResponse.json(
-      { error: "title and questions array are required" },
-      { status: 400 }
-    );
-  }
-
-  // Validate question format
-  for (const q of questions) {
-    if (!q.question || !q.options || !Array.isArray(q.options) || q.options.length < 2) {
-      return NextResponse.json(
-        { error: "Each question needs a question text and at least 2 options" },
-        { status: 400 }
-      );
-    }
-    if (q.correctIndex === undefined || q.correctIndex < 0 || q.correctIndex >= q.options.length) {
-      return NextResponse.json(
-        { error: "Each question needs a valid correctIndex" },
-        { status: 400 }
-      );
-    }
-  }
+  } = parsed.data;
 
   const quiz = await prisma.quiz.create({
     data: {

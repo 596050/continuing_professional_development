@@ -29,8 +29,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} antialiased`}>
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Dark mode: apply class before paint to prevent flash */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var d=document.documentElement;var t=localStorage.getItem('theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.add('dark')}else{d.classList.remove('dark')}}catch(e){}})()`,
+          }}
+        />
+      </head>
+      <body className={`${inter.className} antialiased bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100`}>
         <SessionProvider>{children}</SessionProvider>
       </body>
     </html>

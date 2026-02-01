@@ -1,14 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, withRateLimit } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import bcrypt from "bcryptjs";
 
 // GET /api/settings - Get user profile & credentials
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
@@ -58,10 +56,11 @@ export async function GET() {
 
 // PATCH /api/settings - Update user profile
 export async function PATCH(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const limited = withRateLimit(request, "settings-update", { windowMs: 60_000, max: 10 });
+  if (limited) return limited;
+
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const body = await request.json();
   const updates: Record<string, unknown> = {};

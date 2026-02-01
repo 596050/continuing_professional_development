@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import path from "path";
 import fs from "fs/promises";
@@ -13,10 +13,8 @@ export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const session = await requireAuth();
+  if (session instanceof NextResponse) return session;
 
   const { id } = await params;
   const certificate = await prisma.certificate.findFirst({

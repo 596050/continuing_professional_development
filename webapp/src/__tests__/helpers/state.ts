@@ -35,7 +35,17 @@ import { PrismaClient } from "../../generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 import bcrypt from "bcryptjs";
 
-const adapter = new PrismaLibSql({ url: "file:dev.db" });
+// Use a subclass that overrides createClient with the newer @libsql/client (0.17.0)
+// to avoid SQLITE_IOERR_SHORT_READ in multi-process scenarios.
+class TestPrismaLibSql extends (PrismaLibSql as unknown as { new(config: { url: string }): { connect(): Promise<unknown>; connectToShadowDb(): Promise<unknown>; createClient(config: { url: string }): unknown } }) {
+  createClient(config: { url: string }) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { createClient } = require("@libsql/client") as { createClient: (c: { url: string }) => unknown };
+    return createClient(config);
+  }
+}
+
+const adapter = new TestPrismaLibSql({ url: "file:dev.db" }) as unknown as PrismaLibSql;
 export const prisma = new PrismaClient({ adapter });
 
 // Unique suffix to avoid collisions between test runs
@@ -196,7 +206,7 @@ export async function createUserWithCpdRecords(overrides?: {
         activityType: r.activityType,
         hours: r.hours,
         date: new Date(r.date ?? "2026-01-15"),
-        status: r.status ?? "completed",
+        status: ("status" in r ? r.status : undefined) ?? "completed",
         category: r.category,
         source: "manual",
       },
@@ -684,10 +694,16 @@ export async function cleanupTestActivities() {
 // Cleanup: remove all test data for a user
 // ------------------------------------------------------------------
 export async function cleanupUser(userId: string) {
+  await prisma.payment.deleteMany({ where: { userId } });
+  await prisma.notification.deleteMany({ where: { userId } });
   await prisma.certificate.deleteMany({ where: { userId } });
   await prisma.quizAttempt.deleteMany({ where: { userId } });
   await prisma.reminder.deleteMany({ where: { userId } });
   await prisma.evidence.deleteMany({ where: { userId } });
+  await prisma.externalTranscriptImport.deleteMany({ where: { userId } });
+  await prisma.ingestionAddress.deleteMany({ where: { userId } });
+  await prisma.completionEvent.deleteMany({ where: { userId } });
+  await prisma.cpdRecord.deleteMany({ where: { userId, source: "auto" } });
   // Remove allocations linked to user's CPD records
   const userRecords = await prisma.cpdRecord.findMany({
     where: { userId },

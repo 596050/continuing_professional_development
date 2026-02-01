@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireAuth, serverError } from "@/lib/api-utils";
 import { prisma } from "@/lib/db";
 import ical, { ICalAlarmType } from "ical-generator";
 
@@ -7,13 +7,8 @@ import ical, { ICalAlarmType } from "ical-generator";
 // Optional ?id=xxx to generate for a single reminder
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { error: "Authentication required" },
-        { status: 401 }
-      );
-    }
+    const session = await requireAuth();
+    if (session instanceof NextResponse) return session;
 
     const { searchParams } = new URL(req.url);
     const reminderId = searchParams.get("id");
@@ -101,10 +96,7 @@ export async function GET(req: NextRequest) {
         "Content-Length": String(Buffer.byteLength(icsContent, "utf-8")),
       },
     });
-  } catch {
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+  } catch (err) {
+    return serverError(err);
   }
 }
