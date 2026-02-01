@@ -1,0 +1,422 @@
+[
+  {
+    "title": "CFP Ethics and Professional Responsibility (CFP Board)",
+    "description": "Applies the CFP Board Code of Ethics and Standards of Conduct to common adviser scenarios: fiduciary duty, conflicts, disclosure, confidentiality, and professional judgment.",
+    "credentialSlug": "CFP",
+    "category": "ethics",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      {
+        "question": "Under the CFP Board Code of Ethics and Standards of Conduct, when does the CFP professional's fiduciary duty apply?",
+        "options": [
+          "Only when providing investment advice for a fee (not commission)",
+          "Only when signing an investment policy statement (IPS)",
+          "When providing Financial Advice to a Client",
+          "Only when managing discretionary portfolios"
+        ],
+        "correctIndex": 2,
+        "explanation": "The Standards impose a fiduciary duty when a CFP professional provides Financial Advice to a Client, not only in fee-only or discretionary contexts."
+      },
+      {
+        "question": "Scenario: You will receive a referral fee if your client uses a particular mortgage broker. What is the most appropriate next step under the Standards?",
+        "options": [
+          "Proceed without disclosure if the fee is small",
+          "Disclose the referral arrangement and the material conflict, and obtain the client's informed consent before proceeding",
+          "Disclose only after the client closes the mortgage",
+          "Avoid documentation to reduce liability"
+        ],
+        "correctIndex": 1,
+        "explanation": "Referral compensation creates a material conflict. You must disclose it and obtain informed consent before providing advice or a recommendation tied to that conflict."
+      },
+      {
+        "question": "Which of the following is the best example of a *material* conflict of interest that must be disclosed?",
+        "options": [
+          "You prefer morning meetings to afternoon meetings",
+          "You receive third-party compensation that varies depending on the product selected",
+          "You use a standardized planning template across clients",
+          "You work from home two days per week"
+        ],
+        "correctIndex": 1,
+        "explanation": "Variable third-party compensation can reasonably be expected to affect your advice and is a material conflict requiring disclosure and management."
+      },
+      {
+        "question": "Scenario: A client insists on implementing a strategy you believe is not in their best interest. What is the best course of action consistent with the Standards?",
+        "options": [
+          "Implement immediately without further discussion because the client requested it",
+          "Refuse to discuss alternatives to avoid appearing confrontational",
+          "Explain the risks and why you do not recommend it, offer alternatives, and document the client's informed decision if they still proceed",
+          "Suggest they keep it secret from other professionals involved"
+        ],
+        "correctIndex": 2,
+        "explanation": "You should provide competent advice, try to prevent foreseeable harm, and keep appropriate records. If a client proceeds, document the discussion and rationale."
+      },
+      {
+        "question": "Which statement best describes the difference between the Duty of Loyalty and the Duty of Care?",
+        "options": [
+          "Loyalty is about documentation; Care is about marketing communications",
+          "Loyalty is about acting in the client's best interest and managing conflicts; Care is about competence, diligence, and skill in delivering advice",
+          "Loyalty only applies to investments; Care only applies to insurance",
+          "They are identical; the Standards do not distinguish them"
+        ],
+        "correctIndex": 1,
+        "explanation": "The Duty of Loyalty centers on putting the client first and managing conflicts; the Duty of Care focuses on competent, diligent, and professional performance."
+      },
+      {
+        "question": "Scenario: You discover an error in a client's plan that could materially affect recommendations. What should you do?",
+        "options": [
+          "Ignore it unless the client notices",
+          "Correct the error, promptly inform the client as appropriate, reassess recommendations, and document the remediation",
+          "Wait until the next annual review",
+          "Delete the working papers to avoid scrutiny"
+        ],
+        "correctIndex": 1,
+        "explanation": "Competence and diligence require correcting material errors and communicating appropriately; documentation supports accountability and audit readiness."
+      },
+      {
+        "question": "Under the Standards, which is the *best* description of 'informed consent' to a material conflict?",
+        "options": [
+          "The client remains silent after you mention a conflict",
+          "The client understands the conflict and its consequences and agrees to proceed",
+          "You add the conflict to your website footer",
+          "Your supervisor approves the conflict internally"
+        ],
+        "correctIndex": 1,
+        "explanation": "Informed consent requires the client to understand the material conflict and agree to proceed, not mere silence or internal approval."
+      },
+      {
+        "question": "Which situation is most likely to permit disclosure of confidential client information without the client's consent?",
+        "options": [
+          "A colleague asks out of curiosity",
+          "A family member calls claiming urgency",
+          "A legal obligation requires disclosure (e.g., a valid court order)",
+          "A competitor requests benchmarking data"
+        ],
+        "correctIndex": 2,
+        "explanation": "Confidentiality is fundamental, but lawful requirements (e.g., valid legal process) can mandate disclosure."
+      },
+      {
+        "question": "Scenario: You recommend a proprietary model portfolio with higher internal fees than comparable alternatives. Which action best aligns with the Standards?",
+        "options": [
+          "Recommend it without disclosure because it is proprietary",
+          "Disclose all relevant conflicts and costs, compare reasonable alternatives, and recommend it only if it is in the client's best interest",
+          "Recommend it only to high-net-worth clients to reduce complaints",
+          "Ask the client to waive their right to ask questions"
+        ],
+        "correctIndex": 1,
+        "explanation": "Higher fees and proprietary incentives are conflicts/cost considerations. You must disclose, evaluate alternatives, and act in the client's best interest."
+      },
+      {
+        "question": "The CFP Board has approved an increase in continuing education requirements from 30 to 40 hours per two-year cycle. When is this change scheduled to take effect?",
+        "options": [
+          "Immediately (next business day)",
+          "January 1, 2026",
+          "Quarter 1 of 2027",
+          "January 1, 2030"
+        ],
+        "correctIndex": 2,
+        "explanation": "The CFP Board has announced the increase is scheduled to become effective in Q1 2027."
+      }
+    ]
+  },
+  {
+    "title": "CFP Retirement and Income Planning",
+    "description": "Retirement income fundamentals: income sources, withdrawal strategy tradeoffs, longevity risk, sequence-of-returns risk, Social Security and pension decision points.",
+    "credentialSlug": "CFP",
+    "category": "technical",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      {
+        "question": "Which risk is most directly addressed by purchasing a lifetime income annuity (e.g., SPIA/DIA) as part of a retirement income plan?",
+        "options": ["Inflation risk only", "Longevity risk", "Currency risk", "Credit spread risk only"],
+        "correctIndex": 1,
+        "explanation": "Lifetime income annuities are primarily used to pool longevity risk, helping protect against outliving assets."
+      },
+      {
+        "question": "Scenario: A retiree begins withdrawals during a major market drawdown. Which concept best describes the heightened long-term risk to portfolio sustainability?",
+        "options": ["Basis risk", "Sequence-of-returns risk", "Reinvestment risk", "Tracking error"],
+        "correctIndex": 1,
+        "explanation": "Negative returns early in retirement can permanently impair sustainability. This is sequence-of-returns risk."
+      },
+      {
+        "question": "Which account is generally NOT subject to required minimum distributions (RMDs) during the original owner's lifetime?",
+        "options": ["Traditional IRA", "401(k)", "Roth IRA", "SEP IRA"],
+        "correctIndex": 2,
+        "explanation": "Roth IRAs are generally exempt from lifetime RMDs for the original owner (rules differ for some employer plans)."
+      },
+      {
+        "question": "Scenario: A client is deciding between a single-life pension and a joint-and-survivor pension. What is the key tradeoff to evaluate?",
+        "options": ["Tax filing status changes only", "Higher current payment vs. survivor income protection for a spouse/beneficiary", "Whether the pension is held in a trust", "Whether Social Security will be cancelled"],
+        "correctIndex": 1,
+        "explanation": "Joint-and-survivor options typically reduce the current payment to provide continuing income to a survivor."
+      },
+      {
+        "question": "Which statement best reflects the role of a written retirement income policy in a plan?",
+        "options": ["It guarantees returns", "It replaces the need for asset allocation", "It sets decision rules for spending adjustments, helping manage behavioral and market risks", "It is required by IRS for all retirees"],
+        "correctIndex": 2,
+        "explanation": "A policy provides structured decision rules (spending adjustments, guardrails), reducing ad hoc reactions in volatile markets."
+      },
+      {
+        "question": "Scenario: A client wants to maximize guaranteed income and is willing to give up liquidity on a portion of assets. Which solution most directly aligns?",
+        "options": ["Short-term CD ladder only", "Immediate annuitization of part of the portfolio", "100% equity allocation", "Day trading"],
+        "correctIndex": 1,
+        "explanation": "Immediate annuitization trades liquidity for contractual income, which can stabilize retirement cash flow."
+      },
+      {
+        "question": "Which planning lever can help mitigate inflation risk in retirement (among other tools)?",
+        "options": ["Holding all assets in cash indefinitely", "Including assets with inflation sensitivity and reviewing spending assumptions", "Avoiding rebalancing", "Ignoring cost-of-living changes"],
+        "correctIndex": 1,
+        "explanation": "Inflation-sensitive assets and realistic spending assumptions help manage inflation risk; cash alone can lose purchasing power."
+      },
+      {
+        "question": "Scenario: A client is considering claiming Social Security earlier than planned due to anxiety about market volatility. What is the most appropriate adviser response?",
+        "options": ["Tell them Social Security claiming does not affect lifetime benefits", "Explain the tradeoffs (reduced monthly benefit vs. early cash flow) and evaluate against longevity and other income sources", "Recommend early claiming for all clients", "Advise them to ignore Social Security and focus only on investments"],
+        "correctIndex": 1,
+        "explanation": "Claiming is a longevity and cash-flow decision. Advisers should quantify tradeoffs and align the choice to goals and risks."
+      },
+      {
+        "question": "Which is a common objective of maintaining a 'cash bucket' in a bucket strategy?",
+        "options": ["To maximize volatility", "To fund near-term spending and reduce forced selling of equities in downturns", "To avoid taxes entirely", "To eliminate the need for insurance"],
+        "correctIndex": 1,
+        "explanation": "Cash/short-duration reserves can fund spending during drawdowns, reducing sequence-of-returns damage."
+      },
+      {
+        "question": "Scenario: A retiree's portfolio has appreciated significantly, pushing equities above target allocation. What is the best practice action?",
+        "options": ["Do nothing; drift is always optimal", "Rebalance toward the target allocation considering tax and transaction costs", "Shift entirely to cash", "Increase equity exposure further without limit"],
+        "correctIndex": 1,
+        "explanation": "Rebalancing helps keep risk aligned with plan targets while considering taxes and costs."
+      }
+    ]
+  },
+  {
+    "title": "CFP Tax Planning Fundamentals",
+    "description": "Core U.S. tax-planning concepts used in financial planning: marginal vs effective rate, capital gains, tax-loss harvesting, Roth vs traditional, and common compliance pitfalls.",
+    "credentialSlug": "CFP",
+    "category": "technical",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      {
+        "question": "Which statement best distinguishes a marginal tax rate from an effective tax rate?",
+        "options": ["Marginal rate applies to total tax paid; effective rate applies to the next dollar of income", "Marginal rate applies to the next dollar of taxable income; effective rate is total tax divided by total income", "They are always identical", "Effective rate applies only to capital gains"],
+        "correctIndex": 1,
+        "explanation": "Marginal rate applies to incremental taxable income; effective rate reflects overall tax burden relative to income."
+      },
+      {
+        "question": "Scenario: A client sells an appreciated security held for more than one year. Which tax treatment is most commonly triggered under U.S. federal rules?",
+        "options": ["Ordinary income treatment", "Long-term capital gain treatment", "Gift tax treatment", "Payroll tax treatment"],
+        "correctIndex": 1,
+        "explanation": "Holding periods over one year generally qualify gains for long-term capital gain treatment (subject to exceptions)."
+      },
+      {
+        "question": "What is the wash sale rule primarily designed to prevent?",
+        "options": ["Claiming a capital loss while immediately repurchasing a substantially identical security", "Paying taxes on dividends", "Rebalancing portfolios annually", "Contributing to retirement accounts"],
+        "correctIndex": 0,
+        "explanation": "A wash sale disallows a loss if the investor purchases a substantially identical security within the wash sale window."
+      },
+      {
+        "question": "Scenario: A client realizes capital gains and is considering tax-loss harvesting. What is a primary benefit of harvesting losses (if done correctly)?",
+        "options": ["It guarantees higher returns", "It can offset capital gains and potentially reduce taxable income", "It eliminates the need to report trades", "It converts capital gains into tax-exempt income"],
+        "correctIndex": 1,
+        "explanation": "Tax-loss harvesting can offset gains and, subject to limits, reduce taxable income; it does not guarantee returns."
+      },
+      {
+        "question": "Which statement about a Roth conversion is generally accurate?",
+        "options": ["The converted amount is never taxable", "The converted amount is generally included in taxable income for the year of conversion", "Conversions are only allowed after age 70 and a half", "Conversions eliminate all future tax reporting"],
+        "correctIndex": 1,
+        "explanation": "Roth conversions are generally taxable in the year converted; they can be useful for managing future tax and RMD dynamics."
+      },
+      {
+        "question": "Scenario: A client wants to donate to charity and also reduce capital gains. Which approach most directly supports both objectives?",
+        "options": ["Donate appreciated securities held long-term (instead of cash)", "Donate only cash from a credit card advance", "Donate a security at a loss without considering wash sale rules", "Donate a personal-use asset without documentation"],
+        "correctIndex": 0,
+        "explanation": "Donating appreciated long-term securities can avoid realizing capital gains while providing a charitable benefit (subject to applicable rules)."
+      },
+      {
+        "question": "Which statement best describes tax-exempt municipal bond interest (general concept)?",
+        "options": ["It is always taxable at federal and state levels", "It is generally exempt from U.S. federal income tax, with state treatment varying", "It is exempt from all taxes globally", "It is treated as earned income for retirement contributions"],
+        "correctIndex": 1,
+        "explanation": "Municipal interest is generally federal tax-exempt, but state rules vary and some exceptions can apply."
+      },
+      {
+        "question": "Scenario: A client expects to be in a higher tax bracket later and values tax diversification. Which contribution type can support that goal?",
+        "options": ["Traditional pre-tax contributions only", "Roth contributions (after-tax) as part of a diversified approach", "Avoiding retirement accounts", "Only holding cash"],
+        "correctIndex": 1,
+        "explanation": "Roth contributions can provide tax-free qualified distributions later and improve tax diversification."
+      },
+      {
+        "question": "Which is a key documentation practice in tax planning that reduces compliance risk?",
+        "options": ["Relying on verbal assumptions without notes", "Keeping records of assumptions, sources, and the rationale for recommendations", "Deleting draft calculations", "Avoiding client emails"],
+        "correctIndex": 1,
+        "explanation": "Clear documentation of assumptions and rationale improves defensibility and supports consistent client outcomes."
+      },
+      {
+        "question": "Scenario: A client wants to claim a large deduction but cannot substantiate it. What is the best professional response?",
+        "options": ["Encourage them to claim it anyway", "Advise that deductions require proper substantiation and recommend obtaining documentation or consulting a qualified tax professional", "Ignore the issue because it is the client's responsibility", "Suggest splitting the deduction across multiple years without support"],
+        "correctIndex": 1,
+        "explanation": "Professionals should not facilitate unsupported claims; the appropriate response is to require substantiation and refer to qualified tax advice when needed."
+      }
+    ]
+  },
+  {
+    "title": "CFP Investment Management and Fiduciary Duty",
+    "description": "Portfolio management and adviser duty: IPS design, risk profiling, diversification, rebalancing, cost and conflict evaluation, and best execution principles.",
+    "credentialSlug": "CFP",
+    "category": "technical",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "What is the primary purpose of an Investment Policy Statement (IPS) in a client relationship?", "options": ["To predict market returns", "To document objectives, constraints, risk parameters, and the agreed investment process", "To replace all regulatory disclosures", "To guarantee suitability of any future product"], "correctIndex": 1, "explanation": "An IPS is a governance document that clarifies objectives/constraints and the process for managing the portfolio consistently." },
+      { "question": "Scenario: A client says they can tolerate high volatility, but their near-term spending needs and time horizon indicate limited risk capacity. What is the best next step?", "options": ["Ignore risk capacity and invest aggressively", "Educate the client on the difference between tolerance and capacity, align recommendations to objectives/constraints, and document the discussion", "Refuse to discuss risk and proceed with a standard allocation", "Recommend leverage to increase returns quickly"], "correctIndex": 1, "explanation": "Good practice incorporates both risk tolerance and capacity; documenting the rationale supports a defensible recommendation." },
+      { "question": "Which is the most accurate description of diversification?", "options": ["Owning many securities always guarantees no losses", "Reducing idiosyncratic risk by holding imperfectly correlated assets and avoiding undue concentration", "Investing only in one sector to become an expert", "Timing the market to buy low and sell high"], "correctIndex": 1, "explanation": "Diversification reduces unsystematic risk by spreading exposure; it cannot eliminate market risk." },
+      { "question": "Scenario: You recommend a higher-cost proprietary fund when a comparable lower-cost alternative exists. Which action best supports fiduciary decision-making?", "options": ["Assume proprietary is better because it is in-house", "Evaluate costs, performance drivers, and suitability; disclose conflicts; and recommend only if it is in the client's best interest", "Hide fee details to avoid confusion", "Ask the client to sign a waiver that you are not responsible for fees"], "correctIndex": 1, "explanation": "Fiduciary practice requires evaluating reasonable alternatives, disclosing conflicts, and selecting what best meets client needs." },
+      { "question": "What is rebalancing primarily intended to accomplish?", "options": ["Increase returns in all markets", "Restore the portfolio to its target risk profile and allocation over time", "Avoid all taxable events", "Eliminate the need for monitoring"], "correctIndex": 1, "explanation": "Rebalancing helps keep risk aligned with targets; it can also enforce discipline but doesn't guarantee returns." },
+      { "question": "Scenario: In a volatile market, a client wants to sell everything after reading alarming headlines. What is the most appropriate adviser response?", "options": ["Execute immediately without discussion", "Revisit goals, time horizon, and IPS; explain tradeoffs of panic selling; consider risk-aligned adjustments; and document the rationale", "Tell them you are too busy to discuss", "Recommend doubling down on the riskiest assets"], "correctIndex": 1, "explanation": "Behavioral coaching is part of prudent advice: reconnect actions to objectives and risk parameters and document decisions." },
+      { "question": "Which statement best describes 'best execution' in trade handling?", "options": ["Always using the broker with the lowest commission", "Taking reasonable steps to obtain the most favorable terms reasonably available under the circumstances", "Executing trades only at market open", "Executing only through the adviser's affiliated broker"], "correctIndex": 1, "explanation": "Best execution is a process standard considering price, speed, likelihood of execution, and total cost, not just commission." },
+      { "question": "Which cost is most directly reflected in a fund's expense ratio?", "options": ["Broker trade commissions in the client account", "Internal fund operating expenses charged at the fund level", "The adviser's planning fee", "State income tax"], "correctIndex": 1, "explanation": "Expense ratios reflect ongoing internal fund expenses; adviser fees and client commissions are separate cost components." },
+      { "question": "Scenario: A client is moving from accumulation to decumulation. Which change is most likely warranted in the investment approach?", "options": ["Increase volatility to maximize excitement", "Reassess allocation and liquidity needs to support near-term cash flows and sequence risk management", "Remove all fixed income categorically", "Stop monitoring the portfolio"], "correctIndex": 1, "explanation": "Decumulation increases cash-flow sensitivity; portfolio design often emphasizes liquidity, downside control, and spending sustainability." },
+      { "question": "Which statement best contrasts a suitability standard with a fiduciary standard in practice?", "options": ["Suitability requires acting in the client's best interest; fiduciary only requires disclosure", "Suitability focuses on appropriate recommendations; fiduciary generally requires putting client interests first and managing conflicts beyond mere appropriateness", "They are identical under all regimes", "Fiduciary applies only to insurance"], "correctIndex": 1, "explanation": "Fiduciary standards typically add duties of loyalty/care and stronger conflict management beyond basic appropriateness." }
+    ]
+  },
+  {
+    "title": "CFP Estate Planning and Wealth Transfer",
+    "description": "Estate planning essentials: wills, trusts, beneficiary designations, powers of attorney, probate, and common wealth-transfer planning considerations.",
+    "credentialSlug": "CFP",
+    "category": "technical",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "Which statement about beneficiary designations is generally correct?", "options": ["A will always overrides beneficiary designations on retirement accounts", "Beneficiary designations typically control distribution of the account even if a will says otherwise", "Beneficiary designations are irrelevant for insurance policies", "Beneficiary designations only matter for taxable accounts"], "correctIndex": 1, "explanation": "Beneficiary designations commonly govern transfer of many accounts/policies and can override inconsistent will provisions." },
+      { "question": "Scenario: A client has minor children and significant assets. Which planning tool most directly helps manage and distribute assets for minors?", "options": ["A joint checking account only", "A trust arrangement (e.g., testamentary or living trust) with a designated trustee", "A credit card account", "A verbal instruction to relatives"], "correctIndex": 1, "explanation": "Trusts can set terms and appoint a trustee to manage assets for minors until conditions are met." },
+      { "question": "What is a common benefit of a revocable living trust?", "options": ["It eliminates all taxes automatically", "It can help avoid probate and provide privacy/continuity in asset management", "It is irrevocable once signed", "It is only for charitable giving"], "correctIndex": 1, "explanation": "Revocable trusts are often used to streamline administration and avoid probate for titled assets properly funded into the trust." },
+      { "question": "Scenario: A client wants to ensure someone can make financial decisions if they become incapacitated. Which document most directly addresses this need?", "options": ["A prenuptial agreement", "A durable financial power of attorney", "A beneficiary designation", "A credit report authorization"], "correctIndex": 1, "explanation": "A durable financial power of attorney authorizes an agent to act on financial matters if the principal becomes incapacitated." },
+      { "question": "Which statement best describes the general tax basis concept often associated with inherited appreciated assets?", "options": ["Basis always becomes zero", "Basis generally adjusts at death under applicable rules (commonly called a step-up/down in basis)", "Basis can never change", "Basis becomes the beneficiary's purchase price"], "correctIndex": 1, "explanation": "Many inherited assets receive a basis adjustment at death under current rules, impacting future capital gains." },
+      { "question": "Scenario: A client in a blended family wants to provide for a surviving spouse while preserving assets for children from a prior marriage. Which approach is commonly used?", "options": ["Rely only on verbal promises", "Use a trust structure that can provide spouse income/benefit with remainder to children", "Name only the new spouse as beneficiary of everything", "Put all assets in jointly titled accounts with the spouse"], "correctIndex": 1, "explanation": "Trust structures can balance spouse support with controlled remainder distribution to children from a prior relationship." },
+      { "question": "Which is a key difference between a will and a trust (general concept)?", "options": ["Wills are private; trusts are public", "Wills generally take effect at death and may go through probate; trusts can operate during life and after death if funded", "Trusts can only hold real estate; wills cannot", "A will replaces the need for beneficiary designations"], "correctIndex": 1, "explanation": "Wills commonly require probate and operate at death; funded trusts can manage assets during incapacity and after death." },
+      { "question": "Scenario: A client's estate plan is outdated after a divorce and remarriage. What is the most appropriate professional next step?", "options": ["Do nothing; estate plans never need updating", "Prompt a full review of beneficiaries, titling, and documents, and coordinate with qualified estate counsel", "Change documents yourself regardless of licensing", "Only update the will and ignore account beneficiaries"], "correctIndex": 1, "explanation": "Life events can invalidate assumptions. A comprehensive review (including beneficiary designations) and legal coordination is best practice." },
+      { "question": "Which document most directly communicates healthcare wishes and appoints a healthcare decision-maker?", "options": ["Healthcare directive / medical power of attorney", "Mortgage note", "Brokerage statement", "Tax transcript"], "correctIndex": 0, "explanation": "Advance healthcare directives and medical powers of attorney guide treatment preferences and designate decision-makers." },
+      { "question": "Scenario: A client wants charitable legacy while still receiving income during their lifetime. Which strategy is commonly used (general concept)?", "options": ["Charitable remainder trust arrangement", "Paying all income to heirs immediately", "Holding only cash", "Avoiding any written plan"], "correctIndex": 0, "explanation": "Charitable remainder arrangements can provide lifetime income with a remainder interest to charity (subject to legal/tax rules)." }
+    ]
+  },
+  {
+    "title": "FINRA Regulatory Element: Anti-Money Laundering (AML) Essentials",
+    "description": "AML fundamentals for FINRA-registered persons: AML program elements, red flags, escalation, SAR confidentiality, and practical client scenarios.",
+    "credentialSlug": "FINRA Series",
+    "category": "professionalism",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 1,
+    "questions": [
+      { "question": "Under FINRA Rule 3310, which set of elements is required in a broker-dealer's AML compliance program?", "options": ["A marketing plan, social media policy, brand guidelines, and quarterly sales targets", "Policies and procedures reasonably designed for AML compliance, independent testing, a designated AML officer, and ongoing training", "Only customer identification procedures", "Only an annual attestation by the CEO"], "correctIndex": 1, "explanation": "FINRA Rule 3310 requires a written AML program with core elements including procedures, independent testing, AML officer designation, and training." },
+      { "question": "Scenario: A customer repeatedly breaks large cash deposits into smaller amounts and asks staff to process them separately. This pattern most strongly suggests:", "options": ["Normal activity with no concern", "Structuring to evade reporting/monitoring", "A routine payroll process", "A dividend reinvestment plan"], "correctIndex": 1, "explanation": "Repeatedly splitting transactions to avoid reporting or scrutiny is a classic structuring red flag requiring escalation." },
+      { "question": "Which statement about suspicious activity reporting is most accurate for front-line staff?", "options": ["Staff should tell the client a SAR is being filed to encourage cooperation", "Staff should escalate suspicious activity internally following firm procedures; SAR filings are handled through the firm's AML process", "SARs are optional when the client is wealthy", "SARs can be posted publicly for transparency"], "correctIndex": 1, "explanation": "Employees should follow internal escalation protocols. SAR filing is a controlled process and SAR confidentiality rules prohibit tipping off." },
+      { "question": "What is the primary purpose of a Customer Identification Program (CIP) in an AML context?", "options": ["To select investment products", "To verify a customer's identity using risk-based procedures", "To optimize tax alpha", "To generate marketing leads"], "correctIndex": 1, "explanation": "CIP procedures help ensure the firm knows who the customer is, supporting AML and sanctions compliance." },
+      { "question": "Scenario: A client instructs you to wire funds to an unrelated third party in a high-risk jurisdiction and refuses to explain the purpose. What is the best next step?", "options": ["Execute immediately to avoid upsetting the client", "Conduct appropriate due diligence, escalate to AML/compliance per policy, and consider whether the activity is suspicious", "Ask the client to split the wire into smaller amounts", "Ignore it if the client has a long relationship with the firm"], "correctIndex": 1, "explanation": "High-risk third-party wires without a clear purpose are a red flag; escalation and due diligence are required." },
+      { "question": "Which statement best describes the role of sanctions screening (e.g., OFAC) in AML programs?", "options": ["It is unrelated to AML and can be ignored", "It helps ensure the firm does not transact with sanctioned persons/entities and supports broader financial crime controls", "It applies only to cash transactions", "It is only required for international firms"], "correctIndex": 1, "explanation": "Sanctions controls are a core financial crime control and are commonly integrated with AML compliance programs." },
+      { "question": "Scenario: A colleague suggests sharing SAR-related details with a client to 'clear things up.' What should you do?", "options": ["Agree; transparency always helps", "Decline and remind them SAR-related information is confidential; follow firm procedures", "Post the SAR on social media", "Email the client the internal suspicion notes"], "correctIndex": 1, "explanation": "SAR confidentiality is critical; tipping off can create legal and regulatory risk." },
+      { "question": "Which of the following is most likely to be considered an AML red flag requiring further review?", "options": ["A client updates their mailing address after moving", "A client refuses to provide beneficial ownership information for a legal entity and uses complex structures without a clear business purpose", "A client requests electronic statements", "A client asks about fee schedules"], "correctIndex": 1, "explanation": "Opaque ownership structures and refusal to provide ownership information can indicate elevated financial crime risk and require escalation." },
+      { "question": "What is the best description of 'risk-based' AML controls?", "options": ["Applying identical procedures to all clients regardless of risk", "Applying enhanced controls where risk is higher and simplified controls where risk is lower, consistent with policy and law", "Disabling monitoring for top clients", "Only monitoring transactions over a fixed dollar amount"], "correctIndex": 1, "explanation": "Risk-based programs allocate controls proportionate to identified risk, using enhanced due diligence where warranted." },
+      { "question": "Scenario: You see repeated rapid movement of funds in and out of an account with little apparent economic purpose. What is the best response?", "options": ["Ignore it; rapid movement is normal", "Escalate per AML procedures and document observations (dates, amounts, pattern) for review", "Advise the client to use cash instead", "Recommend higher-risk products to match the activity"], "correctIndex": 1, "explanation": "Pattern-based concerns should be escalated with clear documentation to support investigation and potential reporting." }
+    ]
+  },
+  {
+    "title": "NASAA IAR CE: Ethics for Investment Advisers",
+    "description": "Applies investment adviser fiduciary principles, conflict management, Form ADV disclosure expectations, and practical ethics scenarios relevant to NASAA IAR CE.",
+    "credentialSlug": "IAR",
+    "category": "ethics",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "Under the NASAA IAR CE model, what is the annual CE requirement (in jurisdictions that have adopted the model rule)?", "options": ["6 credits total", "12 credits total: 6 Ethics & Professional Responsibility and 6 Products & Practice", "20 credits total", "30 credits total"], "correctIndex": 1, "explanation": "NASAA's IAR CE model requires 12 credits annually, split between Ethics & Professional Responsibility and Products & Practice." },
+      { "question": "Which statement best describes an investment adviser's fiduciary duty (general SEC/NASAA concept)?", "options": ["Only a duty to follow client instructions, regardless of conflicts", "A duty of care and a duty of loyalty, including putting the client's interests first and managing conflicts", "A duty to guarantee returns", "A duty limited only to execution of trades"], "correctIndex": 1, "explanation": "Fiduciary duty generally includes care (competent advice and monitoring) and loyalty (full and fair disclosure and conflict management)." },
+      { "question": "Scenario: You receive compensation from a third party for recommending a product platform, and the client is not aware. What is the most appropriate action?", "options": ["Do nothing if performance is good", "Provide full and fair disclosure of the conflict (including compensation) before or at the time of the recommendation and obtain informed consent as required", "Disclose only if asked", "Disclose only to your supervisor"], "correctIndex": 1, "explanation": "Third-party compensation is a conflict requiring full and fair disclosure in a manner clients can understand, before advice is acted upon." },
+      { "question": "Which document is primarily used to disclose an adviser's services, fees, conflicts, and disciplinary information to clients (U.S. context)?", "options": ["Form W-2", "Form ADV (especially Part 2A/2B as applicable)", "IRS Form 1040", "Form 1099-DIV"], "correctIndex": 1, "explanation": "Form ADV (notably the brochure and brochure supplement) is a key disclosure document for advisory clients." },
+      { "question": "Scenario: An adviser is trading a security in their personal account shortly before placing the same order for clients, benefiting from the price movement. This conduct is best described as:", "options": ["Diversification", "Front-running (a serious conflict/breach)", "Tax-loss harvesting", "Rebalancing"], "correctIndex": 1, "explanation": "Trading ahead of clients to benefit personally is a severe conflict and can violate fiduciary and compliance obligations." },
+      { "question": "Which statement about conflicts of interest is most accurate?", "options": ["Disclosure alone always eliminates a conflict", "Conflicts must be identified and either eliminated or mitigated/manageable with clear disclosure; some conflicts may be so severe they must be avoided", "Conflicts only exist in commission accounts", "Conflicts do not apply to advisory firms"], "correctIndex": 1, "explanation": "Disclosure is necessary but not always sufficient; firms must assess whether conflicts can be effectively managed." },
+      { "question": "Scenario: A client's portfolio is concentrated in a single stock due to legacy holdings, creating high idiosyncratic risk. What is the most appropriate advice approach?", "options": ["Ignore concentration because the client chose it", "Explain concentration risk, explore constraints (tax/lockups), propose a risk-managed transition plan, and document suitability rationale", "Recommend doubling the position", "Recommend only day trading to diversify"], "correctIndex": 1, "explanation": "A prudent fiduciary approach explains risks, considers constraints, proposes a plan consistent with objectives, and documents the rationale." },
+      { "question": "Which control is most closely associated with a registered investment adviser's written compliance framework?", "options": ["A social media influencer agreement", "Policies and procedures designed to prevent violations, including periodic review", "A marketing slogan", "A client waiver of complaints"], "correctIndex": 1, "explanation": "Advisers are expected to maintain and review compliance policies and procedures to prevent violations of the Advisers Act and related rules." },
+      { "question": "Scenario: A client asks you to omit a liability from their net worth statement to qualify for a product. What is the best response?", "options": ["Agree to improve their approval odds", "Refuse, explain the importance of accurate information, and document the interaction; escalate if needed", "Proceed but keep it verbal", "Suggest they sign a statement that makes you not responsible"], "correctIndex": 1, "explanation": "Providing or facilitating misleading information is unethical and risky; accuracy and documentation are essential." },
+      { "question": "Which statement best captures the goal of 'full and fair disclosure' of conflicts?", "options": ["Use technical language so clients won't ask questions", "Provide clear, specific information in plain language so the client can understand the conflict and its potential impact", "Disclose only once at account opening regardless of changes", "Disclose only to regulators, not clients"], "correctIndex": 1, "explanation": "Full and fair disclosure must be understandable and specific enough for a client to evaluate the conflict." }
+    ]
+  },
+  {
+    "title": "FCA Consumer Duty and Treating Customers Fairly (Retail Advice)",
+    "description": "Consumer Duty fundamentals for retail advisers: consumer principle, cross-cutting rules, outcomes, vulnerable customers, and practical advice-process implications.",
+    "credentialSlug": "FCA Adviser",
+    "category": "ethics",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "The FCA's Consumer Duty is best described as:", "options": ["A one-time disclosure form for new clients", "A standard requiring firms to act to deliver good outcomes for retail customers, supported by cross-cutting rules and outcomes", "A tax reporting framework", "A rule that only applies to wholesale clients"], "correctIndex": 1, "explanation": "The Consumer Duty is an outcomes-focused standard for retail customers, supported by cross-cutting rules and four outcomes." },
+      { "question": "Which option correctly lists the Consumer Duty's cross-cutting rules (high-level)?", "options": ["Act quickly, maximise profit, and minimise documentation", "Act in good faith, avoid causing foreseeable harm, and enable and support customers to pursue their financial objectives", "Sell only regulated products, avoid all complaints, and outsource all decisions", "Provide no advice, only execution-only service"], "correctIndex": 1, "explanation": "The cross-cutting rules require good faith, avoiding foreseeable harm, and enabling/supporting customers to pursue their objectives." },
+      { "question": "Which set correctly reflects the Consumer Duty's four outcomes?", "options": ["Disclosure, marketing, tax, and HR", "Products and services; price and value; consumer understanding; consumer support", "Trading, custody, settlement, and reporting", "Capital, liquidity, leverage, and stress testing"], "correctIndex": 1, "explanation": "The Duty's outcomes cover products/services, price/value, consumer understanding, and consumer support." },
+      { "question": "Scenario: A firm provides a complex suitability report full of jargon that a typical retail client is unlikely to understand. Which Consumer Duty outcome is most directly implicated?", "options": ["Price and value", "Consumer understanding", "Products and services", "Capital adequacy"], "correctIndex": 1, "explanation": "Consumer understanding requires communications that equip customers to make informed decisions, not just technically accurate documents." },
+      { "question": "Scenario: A client has low financial literacy and is experiencing health issues that affect decision-making. What is the most appropriate adviser approach?", "options": ["Proceed at normal speed because deadlines matter more", "Identify vulnerability, adapt communications and support, and document steps taken to enable informed decisions", "Refuse service without explanation", "Only communicate by email using technical terms"], "correctIndex": 1, "explanation": "FCA expectations on vulnerable customers emphasize tailored support and communications to avoid foreseeable harm." },
+      { "question": "Which statement best reflects how Treating Customers Fairly (TCF) relates to the Consumer Duty?", "options": ["TCF is abolished and irrelevant", "The Duty builds on and strengthens the FCA's focus on customer outcomes; firms should not treat it as a box-tick add-on", "TCF applies only to mortgages; the Duty applies only to pensions", "They conflict and cannot be applied together"], "correctIndex": 1, "explanation": "The Duty is an outcomes-focused framework that reinforces and raises expectations around customer outcomes." },
+      { "question": "Which is a core element of suitability in UK retail investment advice?", "options": ["Recommending the product with the highest commission", "Basing personal recommendations on a client's objectives, financial situation, and knowledge/experience", "Using the same recommendation for all clients", "Avoiding any risk discussion"], "correctIndex": 1, "explanation": "Suitability requires aligning advice to the client's circumstances and objectives, including appropriate assessment and rationale." },
+      { "question": "Scenario: An adviser is incentivised by a provider to recommend a product. What is the most appropriate Consumer Duty-aligned action?", "options": ["Recommend it to meet quarterly targets", "Identify and manage the conflict, ensure advice is in the client's best interests/outcomes, and document the rationale and alternatives considered", "Do not disclose the incentive to avoid confusion", "Only recommend it to vulnerable customers"], "correctIndex": 1, "explanation": "Incentives can create conflicts and foreseeable harm. Advisers should manage conflicts, consider alternatives, and document outcomes-based reasoning." },
+      { "question": "Which operational practice most helps demonstrate Consumer Duty compliance over time?", "options": ["Relying only on verbal attestations", "Maintaining clear MI and evidence of outcomes (e.g., suitability rationale, communications testing, complaint learnings)", "Deleting historical records to reduce storage cost", "Avoiding any client feedback collection"], "correctIndex": 1, "explanation": "The Duty is outcomes-based; monitoring and evidence (MI, testing, learnings) help demonstrate compliance." },
+      { "question": "Scenario: A product appears reasonably suitable but is priced such that the client receives poor value relative to benefits and alternatives. Which outcome is most directly implicated?", "options": ["Consumer support", "Price and value", "Products and services", "Consumer understanding"], "correctIndex": 1, "explanation": "Price and value focuses on whether total price is reasonable relative to benefits and the target market." }
+    ]
+  },
+  {
+    "title": "ASIC CPD + Adviser Professionalism and Ethics (Australia)",
+    "description": "Australia financial adviser CPD obligations and ethics: CPD Determination categories, recordkeeping, best interests duty, conflicts, and practical professionalism scenarios.",
+    "credentialSlug": "FASEA/ASIC",
+    "category": "ethics",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "Under ASIC's CPD guidance for relevant providers, what is the minimum annual CPD requirement (full-time) and key mandatory categories?", "options": ["10 hours; marketing and sales only", "40 hours; including minimum hours across technical competence, client care and practice, regulatory compliance and consumer protection, and professionalism and ethics", "25 hours; any category", "40 hours; only technical competence"], "correctIndex": 1, "explanation": "ASIC explains relevant providers must complete at least 40 hours annually with minimum hours across mandatory categories including professionalism/ethics and regulatory compliance." },
+      { "question": "Scenario: You have a sales target that encourages recommending a higher-margin product even when a lower-cost alternative better fits the client. What is the most appropriate action?", "options": ["Proceed to meet the target", "Prioritise the client's interests, manage/avoid the conflict, document alternatives considered, and recommend the option that best meets the client's needs", "Recommend the high-margin product but do not disclose incentives", "Only disclose after the client signs"], "correctIndex": 1, "explanation": "Professionalism and client-first obligations require prioritising client interests and managing conflicts; documentation supports defensibility." },
+      { "question": "Which statement best describes the 'best interests duty' in Australian personal advice (general concept)?", "options": ["A duty to maximise adviser revenue", "A duty to act in the best interests of the client when providing personal advice and to satisfy related obligations (including prioritising client interests)", "A duty only to provide product disclosure statements", "A duty that applies only to wholesale clients"], "correctIndex": 1, "explanation": "Australian personal advice includes a best interests duty and related priority obligations to put client interests first." },
+      { "question": "Scenario: A client's objectives are unclear and they provide incomplete information. What is the most appropriate advice process step?", "options": ["Make assumptions and proceed", "Clarify objectives, gather relevant information, explain why it is needed, and document limitations if information remains incomplete", "Recommend the same product used for other clients", "Avoid documenting gaps to reduce work"], "correctIndex": 1, "explanation": "A defensible advice process requires understanding objectives and collecting sufficient information; documenting limitations is critical if constraints remain." },
+      { "question": "According to ASIC, who approves CPD activities that count toward the annual CPD requirement?", "options": ["Only ASIC approves all CPD activities", "The adviser's authorising AFS licensee (at least 70% of minimum hours must be approved by the licensee)", "Any social media influencer", "No approval is required for any activity"], "correctIndex": 1, "explanation": "ASIC explains the Minister does not approve activities; licensees approve qualifying activities and must ensure minimum percentages are licensee-approved." },
+      { "question": "Scenario: You are authorised to provide tax (financial) advice services to retail clients. What additional CPD requirement may apply under ASIC guidance?", "options": ["No change; tax advice never affects CPD", "An additional minimum number of CPD hours in the area of tax (financial) advice", "Only more hours in marketing", "A requirement to complete U.S. IRS training"], "correctIndex": 1, "explanation": "ASIC notes an additional minimum CPD requirement can apply for relevant providers authorised to provide tax (financial) advice services." },
+      { "question": "Which recordkeeping expectation is explicitly emphasized in ASIC CPD guidance?", "options": ["CPD records are optional if you remember what you did", "Relevant providers (or licensees) must keep complete and accurate records of CPD activity and provide them on request", "Only webinar attendance must be kept; nothing else", "Records should be destroyed immediately after renewal"], "correctIndex": 1, "explanation": "ASIC highlights complete and accurate CPD records are required and must be available to the licensee on request." },
+      { "question": "Scenario: You discover you are behind on CPD hours near the end of the CPD year. Which action best reflects good practice and compliance?", "options": ["Ignore it; CPD is not enforced", "Escalate to your licensee/compliance function, create a remediation plan, and avoid leaving CPD to the last minute in future", "Backdate CPD entries to fill gaps", "Ask a colleague to complete CPD on your behalf"], "correctIndex": 1, "explanation": "ASIC has acted on CPD non-compliance; remediation should be transparent and documented, never falsified." },
+      { "question": "Which CPD category has the highest minimum hours requirement under the CPD Determination (as commonly summarised by ASIC)?", "options": ["Technical competence", "Client care and practice", "Regulatory compliance and consumer protection", "Professionalism and ethics"], "correctIndex": 3, "explanation": "ASIC summarises minimum hours across mandatory categories, with professionalism and ethics typically having the largest minimum allocation." },
+      { "question": "Scenario: A colleague suggests recording mandatory fire training as CPD to reach the 40-hour total. What is the best response?", "options": ["Agree; any training counts", "Decline and include only qualifying CPD relevant to professional capabilities; document the rationale and seek compliance guidance if unsure", "Include it but rename it 'ethics'", "Delete records to avoid review"], "correctIndex": 1, "explanation": "CPD must be relevant to maintaining and extending professional capabilities; misclassifying training undermines audit readiness and integrity." }
+    ]
+  },
+  {
+    "title": "FP Canada CFP Professional Responsibility and Standards of Conduct",
+    "description": "Professional responsibility CE aligned to FP Canada standards: ethical dilemmas, conflicts, client-first conduct, documentation, and CE compliance practices.",
+    "credentialSlug": "FP Canada CFP",
+    "category": "professionalism",
+    "activityType": "structured",
+    "passMark": 70,
+    "maxAttempts": 3,
+    "hours": 2,
+    "questions": [
+      { "question": "According to FP Canada CE requirements, CFP professionals must complete how many CE credits per calendar year?", "options": ["12", "25", "30", "40"], "correctIndex": 1, "explanation": "FP Canada states CFP professionals are required to complete 25 hours of CE annually (calendar year basis)." },
+      { "question": "What is the minimum Professional Responsibility (PR) CE requirement for FP Canada CFP professionals per calendar year?", "options": ["0", "1", "2", "6"], "correctIndex": 2, "explanation": "FP Canada's CE requirements include a minimum number of PR credits per year for CFP professionals." },
+      { "question": "Scenario: You receive a referral fee for sending clients to an insurance agent. What is the most appropriate professional responsibility action?", "options": ["Do not disclose; it's standard practice", "Disclose the referral arrangement and any conflicts clearly to the client and document consent", "Disclose only if the client complains", "Ask the agent to pay the fee to a family member instead"], "correctIndex": 1, "explanation": "Referral compensation creates a conflict; professional responsibility standards require transparent disclosure and appropriate conflict management." },
+      { "question": "Which statement best reflects FP Canada's approach to Professional Responsibility CE content (high-level)?", "options": ["Any financial topic automatically counts as PR", "PR CE focuses on applying professional responsibility standards through examples, case studies, and assessments relevant to practice", "PR CE is only about investment performance", "PR CE is optional for CFP professionals"], "correctIndex": 1, "explanation": "FP Canada describes PR CE as applied, case-based learning aligned to its Standards of Professional Responsibility." },
+      { "question": "Scenario: A client asks you to 'round down' debt amounts on a financial plan to improve loan eligibility. What should you do?", "options": ["Agree; it helps the client", "Refuse, explain the need for accurate information, and document the interaction", "Comply but keep it verbal", "Send the client a template to fill in anything they want"], "correctIndex": 1, "explanation": "Integrity and client-first standards require accuracy; facilitating misleading information is unethical and risky." },
+      { "question": "Which is a best practice for managing a potential conflict between adviser compensation and client outcomes?", "options": ["Avoid documenting compensation details", "Identify the conflict, disclose it plainly, mitigate where possible, and recommend based on the client's goals and best interests", "Recommend whichever product pays more", "Let the client discover costs after implementation"], "correctIndex": 1, "explanation": "Professional responsibility requires conflict identification, clear disclosure, and mitigation to keep advice aligned with client interests." },
+      { "question": "Scenario: A client's situation involves complex tax issues outside your competence. What is the best professional response?", "options": ["Provide definitive tax advice anyway", "Explain limitations, recommend consulting a qualified tax professional, and coordinate as appropriate", "Tell the client taxes are irrelevant", "Copy advice from a forum"], "correctIndex": 1, "explanation": "Professional responsibility includes recognizing limits of competence and referring to appropriate experts when needed." },
+      { "question": "Effective January 2025, FP Canada added a 'Professional Skills' sub-category under which CE category for CFP professionals?", "options": ["Professional Responsibility", "Financial Planning", "General CE only", "Giving Back only"], "correctIndex": 1, "explanation": "FP Canada states Professional Skills was added as a sub-category under Financial Planning effective January 2025." },
+      { "question": "What does FP Canada advise regarding evidence of CE completion (audit readiness)?", "options": ["You must submit all proof with renewal every year", "You do not need to submit proof on renewal, but you should keep documentation for a period in case you are audited", "Proof is never required", "Only verbal confirmation is needed"], "correctIndex": 1, "explanation": "FP Canada advises keeping proof of completed CE for a period (e.g., three years) in case of audit, even if not submitted at renewal." },
+      { "question": "Scenario: A client complains that they did not understand key fees disclosed in documents. Which practice most directly helps prevent this?", "options": ["Rely solely on lengthy disclosures", "Use plain-language explanations, confirm understanding, and document the conversation", "Avoid discussing fees to keep meetings short", "Only disclose fees after the first year"], "correctIndex": 1, "explanation": "Plain-language discussion and confirmation of understanding supports informed consent and reduces foreseeable misunderstandings." }
+    ]
+  }
+]

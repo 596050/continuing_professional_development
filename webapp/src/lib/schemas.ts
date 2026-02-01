@@ -386,6 +386,41 @@ export const confirmImportSchema = z.object({
 });
 
 // ---------------------------------------------------------------------------
+// Firm compliance risk scoring schemas
+// ---------------------------------------------------------------------------
+
+export const FIRM_ALERT_TYPES = [
+  "compliance_risk",
+  "deadline_approaching",
+  "member_overdue",
+  "milestone",
+] as const;
+
+export const FIRM_ALERT_SEVERITIES = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+] as const;
+
+export const firmAlertsQuerySchema = z.object({
+  read: z.enum(["true", "false"]).optional(),
+  type: z.string().max(50).optional(),
+  severity: z.string().max(20).optional(),
+});
+
+export const firmAlertsPatchSchema = z.object({
+  alertIds: z.array(z.string().min(1)).min(1).max(100),
+  read: z.boolean().optional(),
+  resolvedAt: z.string().optional(),
+});
+
+export const complianceSnapshotQuerySchema = z.object({
+  from: z.string().optional(),
+  to: z.string().optional(),
+});
+
+// ---------------------------------------------------------------------------
 // Pagination helper
 // ---------------------------------------------------------------------------
 
@@ -399,3 +434,147 @@ export function parsePagination(searchParams: URLSearchParams) {
   const limit = Math.min(parseInt(searchParams.get("limit") ?? "20") || 20, 100);
   return { page: Math.max(1, page), limit, skip: (Math.max(1, page) - 1) * limit };
 }
+
+// ---------------------------------------------------------------------------
+// Marketplace schemas
+// ---------------------------------------------------------------------------
+
+export const MARKETPLACE_CATEGORIES = [
+  "ethics",
+  "technical",
+  "general",
+  "structured",
+  "unstructured",
+] as const;
+
+export const MARKETPLACE_ACTIVITY_TYPES = [
+  "webinar",
+  "course",
+  "workshop",
+  "self_study",
+  "conference",
+] as const;
+
+export const MARKETPLACE_LISTING_STATUSES = [
+  "draft",
+  "published",
+  "archived",
+  "cancelled",
+] as const;
+
+export const MARKETPLACE_ENROLLMENT_STATUSES = [
+  "enrolled",
+  "in_progress",
+  "completed",
+  "cancelled",
+  "refunded",
+] as const;
+
+export const createMarketplaceListingSchema = z.object({
+  title: safeString(300),
+  description: optionalSafeString(5000),
+  category: z.enum(MARKETPLACE_CATEGORIES),
+  activityType: z.enum(MARKETPLACE_ACTIVITY_TYPES),
+  hours: z.coerce.number().gt(0, "Hours must be greater than 0").lte(100, "Hours must not exceed 100"),
+  price: z.coerce.number().min(0, "Price cannot be negative").max(99999).default(0),
+  currency: z.string().max(10).default("USD"),
+  credentialIds: z.array(z.string().max(100)).max(50).optional(),
+  maxEnrollment: z.coerce.number().int().min(1).max(100000).optional(),
+  startDate: z.coerce.date().optional(),
+  endDate: z.coerce.date().optional(),
+  enrollmentDeadline: z.coerce.date().optional(),
+  thumbnailUrl: z.string().url().max(2000).optional(),
+  syllabus: z.array(z.string().max(500)).max(100).optional(),
+  tags: z.array(z.string().max(50)).max(30).optional(),
+});
+
+export const updateMarketplaceListingSchema = z.object({
+  title: safeString(300).optional(),
+  description: optionalSafeString(5000),
+  category: z.enum(MARKETPLACE_CATEGORIES).optional(),
+  activityType: z.enum(MARKETPLACE_ACTIVITY_TYPES).optional(),
+  hours: z.coerce.number().gt(0).lte(100).optional(),
+  price: z.coerce.number().min(0).max(99999).optional(),
+  currency: z.string().max(10).optional(),
+  credentialIds: z.array(z.string().max(100)).max(50).optional(),
+  maxEnrollment: z.coerce.number().int().min(1).max(100000).nullable().optional(),
+  startDate: z.coerce.date().nullable().optional(),
+  endDate: z.coerce.date().nullable().optional(),
+  enrollmentDeadline: z.coerce.date().nullable().optional(),
+  status: z.enum(MARKETPLACE_LISTING_STATUSES).optional(),
+  thumbnailUrl: z.string().url().max(2000).nullable().optional(),
+  syllabus: z.array(z.string().max(500)).max(100).optional(),
+  tags: z.array(z.string().max(50)).max(30).optional(),
+  featured: z.boolean().optional(),
+});
+
+export const marketplaceSearchSchema = z.object({
+  category: z.enum(MARKETPLACE_CATEGORIES).optional(),
+  activityType: z.enum(MARKETPLACE_ACTIVITY_TYPES).optional(),
+  credential: z.string().max(100).optional(),
+  minHours: z.coerce.number().min(0).optional(),
+  maxPrice: z.coerce.number().min(0).optional(),
+  search: z.string().max(200).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  sort: z.enum(["newest", "price_asc", "price_desc", "popular"]).default("newest"),
+});
+
+export const enrollmentCompleteSchema = z.object({
+  notes: optionalSafeString(5000),
+});
+
+// ---------------------------------------------------------------------------
+// API Key schemas
+// ---------------------------------------------------------------------------
+
+export const API_KEY_PERMISSIONS = [
+  "read:employees",
+  "read:compliance",
+  "webhook:manage",
+] as const;
+
+export const createApiKeySchema = z.object({
+  name: safeString(200),
+  permissions: z
+    .array(z.enum(API_KEY_PERMISSIONS))
+    .min(1, "At least one permission is required")
+    .max(10),
+});
+
+// ---------------------------------------------------------------------------
+// Webhook schemas
+// ---------------------------------------------------------------------------
+
+export const WEBHOOK_EVENTS = [
+  "compliance_changed",
+  "deadline_approaching",
+  "member_added",
+] as const;
+
+export const createWebhookSchema = z.object({
+  url: z
+    .string()
+    .url("Must be a valid URL")
+    .max(2000)
+    .refine((u) => u.startsWith("https://"), {
+      message: "Webhook URL must use HTTPS",
+    }),
+  events: z
+    .array(z.enum(WEBHOOK_EVENTS))
+    .min(1, "At least one event is required")
+    .max(20),
+});
+
+// ---------------------------------------------------------------------------
+// External API query schemas
+// ---------------------------------------------------------------------------
+
+export const externalEmployeesQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+
+export const externalComplianceQuerySchema = z.object({
+  userId: z.string().max(100).optional(),
+});

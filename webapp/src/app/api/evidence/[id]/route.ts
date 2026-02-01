@@ -134,6 +134,49 @@ export async function PATCH(
       }
     }
 
+    // Accept or reject extracted metadata
+    if (body.extractionAction !== undefined) {
+      if (body.extractionAction === "accept") {
+        // Merge extractedMetadata into metadata
+        if (evidence.extractedMetadata) {
+          let extracted: Record<string, unknown> = {};
+          try {
+            extracted = typeof evidence.extractedMetadata === "string"
+              ? JSON.parse(evidence.extractedMetadata)
+              : evidence.extractedMetadata;
+          } catch {
+            // If parsing fails, skip merge
+          }
+
+          let existing: Record<string, unknown> = {};
+          if (evidence.metadata) {
+            try {
+              existing = typeof evidence.metadata === "string"
+                ? JSON.parse(evidence.metadata)
+                : evidence.metadata;
+            } catch {
+              // If parsing fails, start fresh
+            }
+          }
+
+          // Merge extracted fields into existing metadata
+          const merged = { ...existing, ...extracted };
+          // Remove the confidence field from the merged metadata since it is an extraction artifact
+          delete merged.confidence;
+
+          updates.metadata = JSON.stringify(merged);
+          updates.extractedMetadata = null;
+        }
+      } else if (body.extractionAction === "reject") {
+        updates.extractedMetadata = null;
+      } else {
+        return NextResponse.json(
+          { error: "Invalid extractionAction. Accepted: accept, reject" },
+          { status: 400 }
+        );
+      }
+    }
+
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }

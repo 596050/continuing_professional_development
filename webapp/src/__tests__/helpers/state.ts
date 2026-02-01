@@ -658,6 +658,9 @@ export async function cleanupTestFirms() {
     select: { id: true },
   });
   for (const f of testFirms) {
+    // Clean up firm compliance data before deleting
+    await prisma.firmAlert.deleteMany({ where: { firmId: f.id } });
+    await prisma.firmComplianceSnapshot.deleteMany({ where: { firmId: f.id } });
     // Unlink users from firm before deleting
     await prisma.user.updateMany({
       where: { firmId: f.id },
@@ -694,6 +697,7 @@ export async function cleanupTestActivities() {
 // Cleanup: remove all test data for a user
 // ------------------------------------------------------------------
 export async function cleanupUser(userId: string) {
+  await prisma.firmAlert.deleteMany({ where: { userId } });
   await prisma.payment.deleteMany({ where: { userId } });
   await prisma.notification.deleteMany({ where: { userId } });
   await prisma.certificate.deleteMany({ where: { userId } });

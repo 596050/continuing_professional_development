@@ -8,7 +8,7 @@ A CPD (Continuing Professional Development) tracking, compliance, and certificat
 - **Auth:** NextAuth.js v5 (JWT sessions, Credentials provider)
 - **Database:** SQLite via Prisma 7 + `@prisma/adapter-libsql`
 - **Styling:** Tailwind CSS 4 with custom `@theme` variables
-- **Testing:** Vitest (~450+ integration tests)
+- **Testing:** Vitest (584 integration tests across 111 test sections)
 - **Payments:** Stripe (checkout + webhooks)
 - **PDF:** PDFKit for audit reports and certificates
 - **Email:** Nodemailer with HTML/text templates
@@ -29,7 +29,7 @@ npm run build   # vitest run && next build
 ```
 src/
   app/
-    api/              # 51 API routes
+    api/              # 58 API routes
       activities/     # CRUD + publish workflow + credit mappings
       allocations/    # multi-credential hour allocation
       auth/           # signup, forgot-password, reset-password, verify-email
@@ -37,18 +37,21 @@ src/
       checkout/       # Stripe checkout session
       completion/     # completion rules + evaluation
       cpd-records/    # CRUD for CPD activity records
+      cron/           # automated deadline scanning + reminder delivery
       dashboard/      # aggregation endpoint
-      evidence/       # upload + CRUD + strength auto-detection
+      evidence/       # upload + CRUD + strength auto-detection + batch extraction
       export/         # audit-report (PDF), audit-csv, compliance-brief, audit-pack (ZIP)
       firm/           # firm admin dashboard API
       ingest/         # email forwarding ingestion addresses
       notifications/  # in-app notification system
       onboarding/     # wizard submission
       provider/       # firm reporting + verified completion events
+      push/           # push notification subscription management
       quizzes/        # CRUD + attempt submission + grading
+      recommendations/# smart gap analysis + activity suggestions
       reminders/      # CRUD + .ics calendar export
       rule-packs/     # credential rule versioning + resolution
-      settings/       # profile + password
+      settings/       # profile + password + notification preferences
       transcripts/    # transcript import hub + parsers
       webhooks/       # Stripe webhook handler
     activities/       # activity catalog + admin pages
@@ -65,15 +68,15 @@ src/
     */loading.tsx      # 7 loading.tsx route loading states
   components/
     ui/               # 23 components (Button, Modal, Card, Badge, Skeleton, etc.)
-  lib/                # auth, db, email, storage, rate-limit, PDF, parsers
-  __tests__/          # ~450+ integration tests + 15 state helpers
+  lib/                # auth, db, email, storage, rate-limit, PDF, parsers, push, extract, deadline-scanner
+  __tests__/          # 584 integration tests + 15 state helpers
 ```
 
 ## Current Status (All PRDs Implemented)
 
-- ~450+ integration tests passing across 76 test sections
+- ~573 integration tests passing across 110 test sections
 - 15 user state helpers for testing
-- 14 pages, 51 API routes, 23 UI components
+- 14 pages, 58 API routes, 25 UI components
 - All 9 PRDs fully implemented
 
 ### Core Platform
@@ -449,8 +452,10 @@ All PRDs and core features are implemented. Remaining work is production-readine
 - [ ] Production environment variables and deployment config
 - [ ] End-to-end browser tests (Playwright)
 - [ ] Quiz content library per credential/jurisdiction
-- [ ] AI-powered evidence metadata extraction
-- [ ] Automated deadline reminder cron jobs
+- [x] AI-powered evidence metadata extraction
+- [x] Automated deadline reminder cron jobs
+- [x] Smart gap recommendations engine
+- [x] Progressive Web App (PWA) with service worker, push notifications, camera capture
 
 ---
 
@@ -458,13 +463,12 @@ All PRDs and core features are implemented. Remaining work is production-readine
 
 Features not yet implemented that would add significant value, organized by priority.
 
-## P0 - High Impact, High Demand
+## P0 - High Impact, High Demand (IMPLEMENTED)
 
-- **AI-Powered Evidence Extraction**: Use LLM/OCR to auto-extract title, date, hours, provider from uploaded certificates and transcripts. Pre-fill CPD record fields from evidence.
-- **Smart Gap Recommendations**: Analyze user's progress vs requirements and recommend specific activities/topics to fill gaps. "You need 2 more ethics hours - here are 3 options."
-- **Mobile App / PWA**: Progressive web app for on-the-go logging. Photo-capture evidence from phone camera. Push notifications for deadlines.
-- **Automated Deadline Reminders**: Cron-based email reminders at 90/60/30/7 days before deadline. Escalating urgency in messaging.
-
+- **AI-Powered Evidence Extraction** (done): Pattern-matching extraction engine (`src/lib/extract.ts`) that auto-extracts title, date, hours, provider, category, and credential from uploaded evidence. API endpoint `POST /api/evidence/[id]/extract`. Auto-runs on upload. 16 tests.
+- **Smart Gap Recommendations** (done): `GET /api/recommendations` analyzes user's credential progress, calculates gaps for total/ethics/structured hours, scores available activities by relevance, includes urgency levels (critical/high/medium/low) based on deadline proximity. 6 tests.
+- **Mobile App / PWA** (done): `manifest.json`, service worker (`sw.js`) with cache-first static + network-first navigation, push notification handling, `PWAInstall` prompt component, `CameraCapture` component for mobile evidence photos, `POST /api/push/subscribe` endpoint. 4 tests.
+- **Automated Deadline Reminders** (done): Cron-based scanner (`src/lib/deadline-scanner.ts`) checks all user credentials at 90/60/30/7-day thresholds. `POST /api/cron/reminders` endpoint (admin or CRON_SECRET auth). `GET /api/cron/reminders/preview` for dry-run. Vercel cron config (`vercel.json`). Escalating urgency in email messaging. 5 tests.
 ## P1 - Differentiation
 
 - **CPE/CPD Credit Marketplace**: Partner with providers to list accredited courses. Users can browse, enroll, and have completion auto-posted. Revenue share model.

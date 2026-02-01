@@ -12,3 +12,5 @@ export { EmptyState } from "./EmptyState";
 export { Alert } from "./Alert";
 export { TabNav } from "./TabNav";
 export { DataList, DataRow } from "./DataList";
+export { PWAInstall } from "./PWAInstall";
+export { CameraCapture } from "./CameraCapture";

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">
+  <rect width="180" height="180" rx="40" fill="#1B2A4A"/>
+  <!-- Shield shape -->
+  <path d="M90 30 L130 50 L130 100 Q130 140 90 155 Q50 140 50 100 L50 50 Z" fill="none" stroke="white" stroke-width="4"/>
+  <!-- Checkmark inside shield -->
+  <path d="M72 95 L85 108 L110 75" fill="none" stroke="white" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- CPD text below shield -->
+  <text x="90" y="170" font-family="Arial,sans-serif" font-size="14" font-weight="bold" fill="white" text-anchor="middle">CPD</text>
+</svg>

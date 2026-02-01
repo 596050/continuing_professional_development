@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { parsePagination, EVIDENCE_KINDS, EVIDENCE_STRENGTH_RANK } from "@/lib/schemas";
+import { extractEvidenceMetadata } from "@/lib/extract";
 
 // GET /api/evidence - list evidence for authenticated user
 // Supports filtering: ?status=inbox&kind=certificate&cpdRecordId=xxx&page=1&limit=20
@@ -173,6 +174,20 @@ export async function POST(req: NextRequest) {
         status: evidenceStatus,
       },
     });
+
+    // Auto-extract metadata in the background (non-blocking)
+    extractEvidenceMetadata(filePath, detectedType, file.name)
+      .then(async (extracted) => {
+        if (extracted && extracted.confidence > 0) {
+          await prisma.evidence.update({
+            where: { id: evidence.id },
+            data: { extractedMetadata: JSON.stringify(extracted) },
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("[Extract] Auto-extraction failed:", err);
+      });
 
     // Auto-upgrade evidenceStrength on the linked CPD record
     if (cpdRecordId) {

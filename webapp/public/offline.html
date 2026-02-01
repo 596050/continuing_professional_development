@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - AuditReadyCPD</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #f8fafc;
+      color: #1B2A4A;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+
+    .container {
+      text-align: center;
+      max-width: 480px;
+    }
+
+    .logo {
+      width: 80px;
+      height: 80px;
+      background-color: #1B2A4A;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.5rem;
+      color: white;
+      font-size: 2rem;
+      font-weight: bold;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.75rem;
+      color: #1B2A4A;
+    }
+
+    p {
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 1.5rem;
+    }
+
+    .retry-btn {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      background-color: #1B2A4A;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .retry-btn:hover {
+      background-color: #2d3f5e;
+    }
+
+    .retry-btn:active {
+      background-color: #0f1a2e;
+    }
+
+    .offline-icon {
+      font-size: 3rem;
+      margin-bottom: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">AR</div>
+    <div class="offline-icon">&#9888;</div>
+    <h1>You are offline</h1>
+    <p>
+      It looks like you have lost your internet connection.
+      AuditReadyCPD requires a network connection to load your
+      CPD data and sync your progress. Please check your
+      connection and try again.
+    </p>
+    <button class="retry-btn" onclick="window.location.reload()">Retry</button>
+  </div>
+</body>
+</html>

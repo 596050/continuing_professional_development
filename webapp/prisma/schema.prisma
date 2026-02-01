@@ -40,6 +40,9 @@ model User {
   firmId        String?
   firm          Firm?     @relation(fields: [firmId], references: [id])
 
+  // Push notifications
+  pushSubscription String?
+
   // Stripe
   stripeCustomerId String? @unique
   plan             String  @default("free") // free | setup | managed | firm
@@ -565,6 +568,42 @@ model Notification {
 }
 
 // ---------------------------------------------------------------------------
+// Firm Compliance Risk Scoring
+// ---------------------------------------------------------------------------
+
+model FirmComplianceSnapshot {
+  id              String   @id @default(cuid())
+  firmId          String
+  snapshotDate    DateTime @default(now())
+  totalMembers    Int
+  compliantCount  Int
+  atRiskCount     Int
+  overdueCount    Int
+  avgCompletionPct Float
+  breakdown       String   // JSON: per-credential breakdown
+  createdAt       DateTime @default(now())
+
+  @@index([firmId, snapshotDate])
+}
+
+model FirmAlert {
+  id         String    @id @default(cuid())
+  firmId     String
+  userId     String?   // the employee this alert is about
+  type       String    // compliance_risk | deadline_approaching | member_overdue | milestone
+  severity   String    // critical | high | medium | low
+  title      String
+  message    String
+  read       Boolean   @default(false)
+  resolvedAt DateTime?
+  metadata   String?   // JSON: extra context
+  createdAt  DateTime  @default(now())
+
+  @@index([firmId, read])
+  @@index([firmId, type])
+}
+
+// ---------------------------------------------------------------------------
 // Usage Analytics
 // ---------------------------------------------------------------------------
 
@@ -587,4 +626,118 @@ model AnalyticsEvent {
   @@index([firmId, createdAt])
   @@index([event, createdAt])
   @@index([trackingId])
+}
+
+// ---------------------------------------------------------------------------
+// CPE/CPD Credit Marketplace
+// ---------------------------------------------------------------------------
+
+model MarketplaceListing {
+  id                 String    @id @default(cuid())
+  providerId         String    // userId of the provider
+  title              String
+  description        String?
+  category           String    // ethics | technical | general | structured | unstructured
+  activityType       String    // webinar | course | workshop | self_study | conference
+  hours              Float     // CE hours awarded
+  price              Float     @default(0) // 0 = free
+  currency           String    @default("USD")
+  credentialIds      String?   // JSON array of credential IDs this course applies to
+  maxEnrollment      Int?      // null = unlimited
+  startDate          DateTime?
+  endDate            DateTime?
+  enrollmentDeadline DateTime?
+  status             String    @default("draft") // draft | published | archived | cancelled
+  thumbnailUrl       String?
+  syllabus           String?   // JSON: array of module titles
+  tags               String?   // JSON array of tags
+  featured           Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  enrollments MarketplaceEnrollment[]
+
+  @@index([status])
+  @@index([category])
+  @@index([providerId])
+}
+
+model MarketplaceEnrollment {
+  id            String    @id @default(cuid())
+  listingId     String
+  userId        String
+  status        String    @default("enrolled") // enrolled | in_progress | completed | cancelled | refunded
+  enrolledAt    DateTime  @default(now())
+  completedAt   DateTime?
+  certificateId String?   // auto-generated certificate on completion
+  cpdRecordId   String?   // auto-created CPD record on completion
+  paymentId     String?   // link to payment if paid course
+  metadata      String?   // JSON: progress, notes, etc.
+
+  listing MarketplaceListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([listingId, userId])
+  @@index([userId])
+  @@index([listingId, status])
+}
+
+// ---------------------------------------------------------------------------
+// Peer Benchmarking
+// ---------------------------------------------------------------------------
+
+model BenchmarkSnapshot {
+  id                 String   @id @default(cuid())
+  credentialId       String
+  jurisdiction       String?
+  period             String   // "2025-Q4", "2026-Q1", etc.
+  totalUsers         Int
+  avgHours           Float
+  medianHours        Float
+  p25Hours           Float    // 25th percentile
+  p75Hours           Float    // 75th percentile
+  p90Hours           Float    // 90th percentile
+  avgEthicsHours     Float
+  avgStructuredHours Float
+  calculatedAt       DateTime @default(now())
+
+  @@unique([credentialId, jurisdiction, period])
+  @@index([credentialId])
+}
+
+// ---------------------------------------------------------------------------
+// External API Keys
+// ---------------------------------------------------------------------------
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  firmId      String
+  name        String    // human-readable label
+  keyHash     String    @unique // SHA-256 hash of the key
+  keyPrefix   String    // first 8 chars for identification
+  permissions String    // JSON array: ["read:employees", "read:compliance", "webhook:manage"]
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revoked     Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([keyHash])
+  @@index([firmId])
+}
+
+// ---------------------------------------------------------------------------
+// Webhook Endpoints
+// ---------------------------------------------------------------------------
+
+model WebhookEndpoint {
+  id           String    @id @default(cuid())
+  firmId       String
+  url          String
+  events       String    // JSON array: ["compliance_changed", "deadline_approaching", "member_added"]
+  secret       String    // HMAC signing secret
+  active       Boolean   @default(true)
+  lastDelivery DateTime?
+  failCount    Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  @@index([firmId])
 }
