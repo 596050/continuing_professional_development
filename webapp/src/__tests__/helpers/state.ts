@@ -1,14 +1,34 @@
 /**
  * State-Setting Test Helpers
  *
- * These functions create users in various states for E2E testing
- * and manual QA. Each returns the created entities for assertions.
+ * These functions create users in various progression states for E2E
+ * testing and manual QA. Each builds on the previous state, forming
+ * a directed graph of user lifecycle stages:
  *
- * Usage in tests:
- *   const { user } = await createSignedUpUser();
- *   const { user, submission, userCredential } = await createOnboardedUser();
- *   const { user, records } = await createUserWithCpdRecords();
- *   const { user, evidence } = await createUserWithEvidence();
+ *   1. createSignedUpUser       - Account exists, nothing else
+ *   2. createOnboardedUser      - Completed wizard, credential linked
+ *   3. createUserWithCpdRecords - Has 6 realistic CPD activity records
+ *   4. createUserWithEvidence   - Has PDF evidence files for 3 records
+ *   5. createUserWithReminders  - Has deadline + progress reminders
+ *   6. createUserWithQuizPass   - Has quiz with a passing attempt
+ *   7. createUserWithCertificate- Has an issued certificate
+ *   8. createPublishedActivity  - Published activity with 3 credit mappings
+ *   9. createAdminUser          - Platform admin (role=admin)
+ *  10. createFirmAdminUser      - Firm admin with associated Firm entity
+ *  11. createMultiCredentialUser- Holds CFP (US) + FCA Adviser (GB)
+ *  12. createUserApproachingDeadline - Renewal within 25 days
+ *  13. createUserPastDeadline   - Renewal date in the past
+ *  14. createUserAtFullCompletion - Met all CFP hour requirements (30h)
+ *  15. createUserWithQuizExhausted - Failed all allowed quiz attempts
+ *
+ * Each helper returns all created entities so tests can assert on
+ * exact values without re-querying. All test users use @e2e.local
+ * email addresses for easy cleanup.
+ *
+ * Cleanup order matters due to foreign key constraints:
+ *   certificates -> quiz attempts -> reminders -> evidence ->
+ *   completion rules -> CPD records -> user credentials ->
+ *   onboarding submissions -> user
  */
 
 import { PrismaClient } from "../../generated/prisma/client";
@@ -423,6 +443,221 @@ export async function createPublishedActivity(overrides?: {
 }
 
 // ------------------------------------------------------------------
+// State 9: Admin user (role=admin, can manage activities/quizzes)
+// ------------------------------------------------------------------
+export async function createAdminUser(overrides?: {
+  credentialName?: string;
+}) {
+  const onboarded = await createOnboardedUser({
+    credentialName: overrides?.credentialName,
+  });
+
+  // Promote to admin
+  const adminUser = await prisma.user.update({
+    where: { id: onboarded.user.id },
+    data: { role: "admin" },
+  });
+
+  return { ...onboarded, user: adminUser };
+}
+
+// ------------------------------------------------------------------
+// State 10: Firm admin (role=firm_admin, firmId set, tenant-scoped)
+// ------------------------------------------------------------------
+export async function createFirmAdminUser(overrides?: {
+  firmName?: string;
+}) {
+  const onboarded = await createOnboardedUser();
+  const firmSlug = `test-firm-${uid()}`;
+
+  const firm = await prisma.firm.create({
+    data: {
+      name: overrides?.firmName ?? `Test Firm ${firmSlug}`,
+      slug: firmSlug,
+      plan: "firm",
+      seatsLimit: 50,
+      active: true,
+    },
+  });
+
+  const firmAdmin = await prisma.user.update({
+    where: { id: onboarded.user.id },
+    data: { role: "firm_admin", firmId: firm.id },
+  });
+
+  return { ...onboarded, user: firmAdmin, firm };
+}
+
+// ------------------------------------------------------------------
+// State 11: Multi-credential user (holds two credentials from
+//           different jurisdictions, enabling cross-region tests)
+// ------------------------------------------------------------------
+export async function createMultiCredentialUser() {
+  const onboarded = await createOnboardedUser({
+    credentialName: "CFP",
+    jurisdiction: "US",
+  });
+
+  const fca = await prisma.credential.findUnique({
+    where: { name: "FCA Adviser" },
+  });
+  if (!fca) throw new Error("FCA Adviser not found. Run seed first.");
+
+  const secondCredential = await prisma.userCredential.create({
+    data: {
+      userId: onboarded.user.id,
+      credentialId: fca.id,
+      jurisdiction: "GB",
+      renewalDeadline: new Date("2027-01-01"),
+      hoursCompleted: 5,
+      isPrimary: false,
+    },
+  });
+
+  return { ...onboarded, secondCredential, fcaCredential: fca };
+}
+
+// ------------------------------------------------------------------
+// State 12: User approaching deadline (renewal within 30 days)
+// ------------------------------------------------------------------
+export async function createUserApproachingDeadline() {
+  const daysFromNow = 25;
+  const deadline = new Date();
+  deadline.setDate(deadline.getDate() + daysFromNow);
+
+  const onboarded = await createOnboardedUser({
+    renewalDeadline: deadline.toISOString().split("T")[0],
+    hoursCompleted: 5,
+  });
+
+  return { ...onboarded, daysUntilDeadline: daysFromNow };
+}
+
+// ------------------------------------------------------------------
+// State 13: User past deadline (renewal date in the past)
+// ------------------------------------------------------------------
+export async function createUserPastDeadline() {
+  const deadline = new Date("2025-12-31");
+
+  const onboarded = await createOnboardedUser({
+    renewalDeadline: "2025-12-31",
+    hoursCompleted: 5,
+  });
+
+  return { ...onboarded, deadline };
+}
+
+// ------------------------------------------------------------------
+// State 14: User at 100% completion (met all hour requirements)
+// ------------------------------------------------------------------
+export async function createUserAtFullCompletion() {
+  // CFP requires 30h total, 2h ethics
+  const onboarded = await createOnboardedUser({
+    credentialName: "CFP",
+    hoursCompleted: 0,
+  });
+
+  // Create records totaling exactly 30h with 2h ethics
+  const records = [];
+  records.push(
+    await prisma.cpdRecord.create({
+      data: {
+        userId: onboarded.user.id,
+        title: "Ethics Masterclass",
+        activityType: "structured",
+        hours: 2,
+        date: new Date("2026-01-15"),
+        status: "completed",
+        category: "ethics",
+        source: "manual",
+      },
+    })
+  );
+  records.push(
+    await prisma.cpdRecord.create({
+      data: {
+        userId: onboarded.user.id,
+        title: "Comprehensive Financial Planning",
+        activityType: "structured",
+        hours: 28,
+        date: new Date("2026-02-01"),
+        status: "completed",
+        category: "general",
+        source: "manual",
+      },
+    })
+  );
+
+  return { ...onboarded, records };
+}
+
+// ------------------------------------------------------------------
+// State 15: User with quiz failure (exhausted all attempts)
+// ------------------------------------------------------------------
+export async function createUserWithQuizExhausted() {
+  const withRecords = await createUserWithCpdRecords();
+
+  const quiz = await prisma.quiz.create({
+    data: {
+      title: "Hard Ethics Assessment",
+      passMark: 80,
+      maxAttempts: 2,
+      hours: 1,
+      category: "ethics",
+      questionsJson: JSON.stringify([
+        {
+          question: "Q1?",
+          options: ["A", "B", "C", "D"],
+          correctIndex: 2,
+        },
+        {
+          question: "Q2?",
+          options: ["A", "B"],
+          correctIndex: 0,
+        },
+      ]),
+    },
+  });
+
+  // Create 2 failing attempts (maxAttempts = 2)
+  const attempts = [];
+  for (let i = 0; i < 2; i++) {
+    attempts.push(
+      await prisma.quizAttempt.create({
+        data: {
+          userId: withRecords.user.id,
+          quizId: quiz.id,
+          answers: JSON.stringify([0, 1]),
+          score: 50,
+          passed: false,
+          completedAt: new Date(),
+        },
+      })
+    );
+  }
+
+  return { ...withRecords, quiz, attempts };
+}
+
+// ------------------------------------------------------------------
+// Cleanup: remove test firms
+// ------------------------------------------------------------------
+export async function cleanupTestFirms() {
+  const testFirms = await prisma.firm.findMany({
+    where: { slug: { contains: "test-firm" } },
+    select: { id: true },
+  });
+  for (const f of testFirms) {
+    // Unlink users from firm before deleting
+    await prisma.user.updateMany({
+      where: { firmId: f.id },
+      data: { firmId: null },
+    });
+    await prisma.firm.delete({ where: { id: f.id } });
+  }
+}
+
+// ------------------------------------------------------------------
 // Cleanup: remove test activities
 // ------------------------------------------------------------------
 export async function cleanupTestActivities() {
@@ -466,6 +701,11 @@ export async function cleanupUser(userId: string) {
   await prisma.cpdRecord.deleteMany({ where: { userId } });
   await prisma.userCredential.deleteMany({ where: { userId } });
   await prisma.onboardingSubmission.deleteMany({ where: { userId } });
+  // Unlink from firm before deleting user
+  await prisma.user.update({
+    where: { id: userId },
+    data: { firmId: null },
+  });
   await prisma.user.delete({ where: { id: userId } });
 }
 
@@ -496,4 +736,5 @@ export async function cleanupAllTestUsers() {
     await cleanupUser(u.id);
   }
   await cleanupTestQuizzes();
+  await cleanupTestFirms();
 }

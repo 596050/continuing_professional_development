@@ -115,10 +115,10 @@ SESSION_EXPIRY_HOURS=24
 cd webapp && npx vitest run
 ```
 
-- The test suite (`src/__tests__/business-features.test.ts`) contains 167 tests covering all business logic
+- The test suite (`src/__tests__/business-features.test.ts`) contains 211 tests covering all business logic
 - Tests run against the dev database (`dev.db`) and require a dev server on port 3000
 - To start the dev server: `cd webapp && npm run dev`
-- All 167 tests MUST pass before any feature is considered complete
+- All 211 tests MUST pass before any feature is considered complete
 - The `npm run build` command runs tests automatically before compilation - a build will fail if tests fail
 - State-setting helpers in `src/__tests__/helpers/state.ts` create test users (use `@e2e.local` email pattern)
 - If you add a new feature, add corresponding tests to the test suite before marking it done

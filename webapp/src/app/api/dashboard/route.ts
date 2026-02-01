@@ -1,3 +1,28 @@
+/**
+ * Dashboard API - GET /api/dashboard
+ *
+ * The primary data endpoint for the authenticated user's dashboard view.
+ * Aggregates data from multiple tables into a single response that the
+ * frontend renders without needing multiple requests.
+ *
+ * BUSINESS LOGIC:
+ * - Hours calculation includes BOTH logged CPD records AND self-reported
+ *   hours from onboarding (UserCredential.hoursCompleted). This handles
+ *   the common case where an adviser has existing hours before joining.
+ * - Progress percentage is capped at 100% even if the user exceeds the
+ *   requirement (over-compliance is common in regulated professions).
+ * - Only "completed" status records count toward hour totals. Records in
+ *   "planned" or "in_progress" states are shown in the activity feed but
+ *   do not contribute to compliance calculations.
+ * - Ethics and structured hours are tracked separately because most
+ *   credentials have sub-requirements (e.g., CFP: 2h ethics of 30h total).
+ * - Deadline calculation uses server time to avoid timezone discrepancies.
+ *
+ * DATA FLOW:
+ *   User -> UserCredential (primary) -> Credential (requirements)
+ *   User -> CpdRecord[] (completed) -> hour aggregation
+ *   User -> Evidence (count) -> certificate count
+ */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";

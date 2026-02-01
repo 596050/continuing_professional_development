@@ -123,10 +123,10 @@ SESSION_EXPIRY_HOURS=24
 cd webapp && npx vitest run
 ```
 
-- The test suite (`src/__tests__/business-features.test.ts`) contains 167 tests covering all business logic
+- The test suite (`src/__tests__/business-features.test.ts`) contains 211 tests covering all business logic
 - Tests run against the dev database (`dev.db`) and require a dev server on port 3000
 - To start the dev server: `cd webapp && npm run dev`
-- All 167 tests MUST pass before any feature is considered complete
+- All 211 tests MUST pass before any feature is considered complete
 - The `npm run build` command runs tests automatically before compilation - a build will fail if tests fail
 - State-setting helpers in `src/__tests__/helpers/state.ts` create test users (use `@e2e.local` email pattern)
 - If you add a new feature, add corresponding tests to the test suite before marking it done
@@ -156,6 +156,14 @@ cd webapp && npx vitest run
 22. Credit mapping (multi-jurisdiction resolution, exclusions, INTL matching)
 23. Provider reporting (aggregation, role gates, date filtering)
 24. Activity auth gates (all new endpoints require authentication)
+25. User journey scenarios (full signup-to-audit multi-step flows)
+26. Role-based access control (admin, firm_admin, user role boundaries)
+27. Quiz lifecycle (retry limits, exhaustion, auto-certificate on pass)
+28. Deadline and urgency (approaching, past, and on-time deadline states)
+29. Multi-credential credit resolution (cross-region credit views)
+30. Completion workflow (rules + evaluation + auto-certificate generation)
+31. Data isolation (users cannot access each other's data)
+32. API input validation (boundary testing for all POST endpoints)
 
 ## Content Rules
 

@@ -1,3 +1,28 @@
+/**
+ * Provider Reporting Dashboard - GET /api/provider/report
+ *
+ * WHY THIS EXISTS:
+ * Providers (firms, training companies, CE/CPD content creators) need to
+ * see how their content is performing: how many completions, pass rates,
+ * hours issued, and certificate counts. This data justifies the provider's
+ * subscription and is often required for their own regulatory reporting.
+ *
+ * TENANT SCOPING:
+ * - Platform admins (role=admin) see ALL data across the platform
+ * - Firm admins (role=firm_admin) see ONLY their firm's data
+ *   (filtered by tenantId = user.firmId)
+ * - Regular users get 403 Forbidden
+ *
+ * This scoping is critical for multi-tenant data isolation: Zurich should
+ * never see Fidelity's completion rates.
+ *
+ * METRICS RETURNED:
+ * - Activity counts: total, published, draft (content pipeline health)
+ * - Certificate counts: total, active (net of revocations)
+ * - Quiz stats: total attempts, passed, pass rate % (content quality)
+ * - Credit hours: total issued, breakdown by category (regulatory value)
+ * - Optional date range filter on all metrics
+ */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";

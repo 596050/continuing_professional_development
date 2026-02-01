@@ -1,3 +1,36 @@
+/**
+ * Quiz Attempt Submission - POST /api/quizzes/[id]/attempt
+ *
+ * The most complex single endpoint in the platform: handles answer
+ * submission, auto-grading, attempt limiting, and cascading side effects
+ * (CPD record + certificate auto-generation on pass).
+ *
+ * FLOW:
+ * 1. Validate quiz exists and is active
+ * 2. Check if user has remaining attempts (maxAttempts enforcement)
+ * 3. Validate answer array matches question count
+ * 4. Grade each answer against the question bank's correctIndex
+ * 5. Calculate score as percentage correct, compare to passMark
+ * 6. Store attempt with answers + score + passed flag
+ * 7. IF passed AND quiz.hours > 0:
+ *    a. Create a CpdRecord (source="platform") - this adds to the user's
+ *       hour total automatically via the dashboard aggregation
+ *    b. Create a Certificate with auto-generated CERT-YYYY-xxxxxxxx code
+ *    c. Link certificate to the CPD record for audit trail
+ *    d. Store quiz metadata on certificate (quizScore, quizId, attemptId)
+ *
+ * WHY AUTO-CERTIFICATE:
+ * For platform-delivered content (Lane A: Hosted Academy), the quiz IS the
+ * proof of learning. The certificate is generated instantly because there's
+ * no manual approval needed - the quiz score is verifiable evidence. This
+ * is the key UX advantage over manual CPD logging.
+ *
+ * ATTEMPT LIMITING:
+ * maxAttempts prevents infinite retries (regulatory concern for ethics
+ * assessments). Once exhausted, the user must contact support or wait
+ * for a reset. The API returns attemptsUsed and attemptsRemaining for
+ * the frontend to show retry state.
+ */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";

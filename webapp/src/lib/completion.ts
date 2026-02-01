@@ -1,10 +1,39 @@
 /**
  * Completion Rules Engine
  *
- * Evaluates whether a user has met all completion criteria for a CPD activity.
- * Rules can require: quiz pass, evidence upload, watch time, or attendance.
- * When all rules for an activity pass, the activity is considered "complete"
- * and a certificate can be generated.
+ * This module is the gatekeeper between "a user did an activity" and "a user
+ * earned a certificate." It evaluates CompletionRule records attached to a
+ * CpdRecord and returns a pass/fail for each rule, plus an overall eligibility
+ * decision.
+ *
+ * WHY THIS EXISTS:
+ * Different CPD activities have different evidence requirements. A live
+ * webinar might only need attendance confirmation. An on-demand video needs
+ * watch-time tracking. An ethics course needs a passing quiz score. Some
+ * activities require MULTIPLE conditions (quiz + evidence). This engine
+ * evaluates them all with AND logic: every rule must pass.
+ *
+ * RULE TYPES:
+ *   quiz_pass       - User passed a specific quiz with score >= minScore
+ *   evidence_upload - User uploaded N files (optionally of required types)
+ *   watch_time      - User watched >= N% of a video (tracked in record.notes)
+ *   attendance      - User confirmed attendance (stored in record.notes)
+ *
+ * DESIGN DECISIONS:
+ * - Rules are linked to CpdRecords, not Activities, because the same activity
+ *   can produce different records for different users/credentials.
+ * - If no rules are defined, the activity is auto-complete. This supports
+ *   manual CPD logging where the adviser is trusted to self-report.
+ * - Watch time and attendance data are stored in CpdRecord.notes as JSON
+ *   because these are transient metadata, not separate entities.
+ * - The engine returns detailed evaluation results so the UI can show exactly
+ *   which requirements are met and which are pending.
+ *
+ * USAGE:
+ *   const result = await evaluateCompletionRules(userId, cpdRecordId);
+ *   if (result.eligibleForCertificate) {
+ *     // Generate certificate via POST /api/completion
+ *   }
  */
 
 import { prisma } from "@/lib/db";

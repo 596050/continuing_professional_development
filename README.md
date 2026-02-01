@@ -661,7 +661,7 @@ Use an umbrella brand that isn't finance-coded:
 - [x] State helper: createPublishedActivity() (3 credit mappings: US, GB, AU)
 
 #### Testing
-- [x] Vitest integration test suite (167 tests covering all business features)
+- [x] Vitest integration test suite (211 tests covering all business features)
   - Credential database verification (all 14 credentials, rules, regions, verticals)
   - User signup flow (creation, validation, duplicate rejection, password rules)
   - Authentication gates (all 12 protected endpoints return 401)
@@ -1389,7 +1389,7 @@ shared/tests/
   theme.test.ts             # Design token consistency checks
 
 webapp/src/__tests__/
-  business-features.test.ts # 167 tests (webapp integration)
+  business-features.test.ts # 211 tests (webapp integration)
 
 plugin/tests/
   popup.test.ts             # Extension popup UI tests
@@ -1418,7 +1418,7 @@ The plugin authenticates via the same NextAuth.js session (cookie-based for same
 
 ### Sprint 1: Certificate Engine + Quiz Mechanic - COMPLETE
 
-All items implemented and tested (167 tests passing):
+All items implemented and tested (211 tests passing):
 
 | Feature | Status | Implementation |
 |---------|--------|---------------|
@@ -1429,7 +1429,7 @@ All items implemented and tested (167 tests passing):
 
 ### Sprint 2: Content Model + Activity Catalog - COMPLETE
 
-All items implemented and tested (167 tests passing):
+All items implemented and tested (211 tests passing):
 
 | Feature | Status | Implementation |
 |---------|--------|---------------|

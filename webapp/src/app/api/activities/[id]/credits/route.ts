@@ -1,3 +1,32 @@
+/**
+ * Activity Credit Resolution - GET /api/activities/[id]/credits
+ *
+ * This is the "credit moat" endpoint: it resolves how many CPD credits
+ * a specific activity is worth FOR EACH of the user's credentials.
+ *
+ * WHY THIS IS COMPLEX:
+ * A single webinar on "Ethics in Financial Planning" might be worth:
+ *   - 1 CE hour (ethics) for a US CFP holder
+ *   - 1 CPD hour (ethics) for a UK FCA adviser
+ *   - 0 hours for a user in a state where it's not approved (e.g., NY)
+ *   - 0.5 hours if the user holds a different credential with lower rates
+ *
+ * The CreditMapping table stores the mapping rules per country/credential,
+ * and this endpoint evaluates ALL of them against the user's credential
+ * profile to produce a "credit view" - what this activity is worth to YOU.
+ *
+ * RESOLUTION LOGIC:
+ * 1. Fetch all active credit mappings for the activity
+ * 2. For each user credential:
+ *    a. Filter mappings by country (exact match OR "INTL" wildcard)
+ *    b. Filter by credentialId if the mapping is credential-specific
+ *    c. Check state exclusions (e.g., "not approved in NY, CA, VA")
+ *    d. Check state inclusions (e.g., "only approved in TX, FL")
+ *    e. Sum applicable credit amounts
+ * 3. Return per-credential breakdown with eligibility status
+ *
+ * This powers the activity catalog's "X hours for your credential" badges.
+ */
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
