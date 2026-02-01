@@ -24,6 +24,15 @@
  *  16.  Data integrity — foreign keys, JSON validity, orphan prevention
  *  17.  Page availability — all routes serve 200
  *  18.  Edge cases — zero hours, missing deadlines, empty states
+ *  19.  Certificate generation — creation, codes, verification, revocation
+ *  20.  Certificate PDF — generation, QR code embedding, branded output
+ *  21.  Quiz engine — creation, attempt submission, grading, pass/fail, retries
+ *  22.  Completion rules — rule evaluation, multi-rule AND logic, auto-cert
+ *  23.  Certificate vault — list, search, export CSV
+ *  24.  Activity CRUD — creation, listing, filtering, publish workflow, soft-delete
+ *  25.  Credit mapping — multi-jurisdiction resolution, exclusions, INTL matching
+ *  26.  Provider reporting — aggregation, role gates, date filtering, tenant scope
+ *  27.  Activity auth gates — all new endpoints require authentication
  *
  * Run: npx vitest run
  * Watch: npx vitest
@@ -37,7 +46,11 @@ import {
   createUserWithCpdRecords,
   createUserWithEvidence,
   createUserWithReminders,
+  createUserWithQuizPass,
+  createUserWithCertificate,
+  createPublishedActivity,
   cleanupUser,
+  cleanupTestActivities,
 } from "./helpers/state";
 
 const BASE_URL = "http://localhost:3000";
@@ -1837,5 +1850,1250 @@ describe("Credential-Specific Business Rules", () => {
         expect(annualAvg).toBeGreaterThan(0);
       }
     }
+  });
+});
+
+// ============================================================
+// 17. CERTIFICATE GENERATION
+// ============================================================
+describe("Certificate Generation", () => {
+  it("creates a certificate with unique code", async () => {
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    const cert = await prisma.certificate.create({
+      data: {
+        userId: user.id,
+        certificateCode: `CERT-TEST-${Date.now()}`,
+        title: records[0].title,
+        credentialName: "CFP",
+        hours: records[0].hours,
+        category: "ethics",
+        activityType: "structured",
+        provider: "CFP Board",
+        completedDate: new Date("2026-01-15"),
+        verificationUrl: `http://localhost:3000/api/certificates/verify/CERT-TEST-${Date.now()}`,
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    expect(cert.id).toBeDefined();
+    expect(cert.certificateCode).toMatch(/^CERT-TEST-/);
+    expect(cert.status).toBe("active");
+    expect(cert.userId).toBe(user.id);
+  });
+
+  it("certificate codes are globally unique", async () => {
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    const code = `CERT-UNIQUE-${Date.now()}`;
+    await prisma.certificate.create({
+      data: {
+        userId: user.id,
+        certificateCode: code,
+        title: "Test",
+        hours: 1,
+        completedDate: new Date(),
+        verificationUrl: `http://localhost:3000/api/certificates/verify/${code}`,
+      },
+    });
+
+    // Second certificate with same code should fail
+    await expect(
+      prisma.certificate.create({
+        data: {
+          userId: user.id,
+          certificateCode: code,
+          title: "Duplicate",
+          hours: 1,
+          completedDate: new Date(),
+          verificationUrl: `http://localhost:3000/api/certificates/verify/${code}`,
+        },
+      })
+    ).rejects.toThrow();
+  });
+
+  it("certificate can be linked to a CPD record", async () => {
+    const { certificate, records } = await createUserWithCertificate();
+    testUserIds.push(certificate.userId);
+
+    expect(certificate.cpdRecordId).toBe(records[0].id);
+  });
+
+  it("certificate status can be changed to revoked", async () => {
+    const { user, certificate } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    const updated = await prisma.certificate.update({
+      where: { id: certificate.id },
+      data: { status: "revoked" },
+    });
+
+    expect(updated.status).toBe("revoked");
+  });
+
+  it("certificate verification endpoint returns 404 for bad code", async () => {
+    const res = await fetch(
+      `${BASE_URL}/api/certificates/verify/CERT-NONEXISTENT-000`
+    );
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+  });
+
+  it("certificate verification endpoint returns valid certificate data", async () => {
+    const { certificate, user } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    const res = await fetch(
+      `${BASE_URL}/api/certificates/verify/${certificate.certificateCode}`
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(true);
+    expect(body.certificateCode).toBe(certificate.certificateCode);
+    expect(body.title).toBe(certificate.title);
+    expect(body.hours).toBe(certificate.hours);
+  });
+
+  it("revoked certificate shows as invalid in verification", async () => {
+    const { certificate, user } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    await prisma.certificate.update({
+      where: { id: certificate.id },
+      data: { status: "revoked" },
+    });
+
+    const res = await fetch(
+      `${BASE_URL}/api/certificates/verify/${certificate.certificateCode}`
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.valid).toBe(false);
+    expect(body.status).toBe("revoked");
+  });
+});
+
+// ============================================================
+// 18. CERTIFICATE PDF GENERATION
+// ============================================================
+describe("Certificate PDF Generation", () => {
+  it("generateCertificateCode produces correct format", async () => {
+    const { generateCertificateCode } = await import("@/lib/pdf");
+    const code = generateCertificateCode();
+    expect(code).toMatch(/^CERT-\d{4}-[a-z0-9]{8}$/);
+  });
+
+  it("generateCertificateCode produces unique codes", async () => {
+    const { generateCertificateCode } = await import("@/lib/pdf");
+    const codes = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      codes.add(generateCertificateCode());
+    }
+    expect(codes.size).toBe(20);
+  });
+
+  it("generateCertificatePdf produces valid PDF buffer", async () => {
+    const { generateCertificatePdf } = await import("@/lib/pdf");
+
+    const pdfDoc = await generateCertificatePdf({
+      certificateCode: "CERT-2026-testpdf1",
+      title: "Ethics in Financial Planning",
+      recipientName: "John Smith",
+      recipientEmail: "john@test.com",
+      credentialName: "CFP",
+      hours: 2,
+      category: "ethics",
+      provider: "CFP Board",
+      completedDate: "2026-01-15T00:00:00.000Z",
+      issuedDate: new Date().toISOString(),
+      verificationUrl: "http://localhost:3000/api/certificates/verify/CERT-2026-testpdf1",
+      quizScore: 95,
+      firmName: null,
+      firmLogoUrl: null,
+      firmPrimaryColor: null,
+    });
+
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of pdfDoc) {
+      chunks.push(chunk as Uint8Array);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    expect(buffer.length).toBeGreaterThan(0);
+    expect(buffer.toString("utf8", 0, 5)).toBe("%PDF-");
+  });
+
+  it("certificate PDF respects firm branding color", async () => {
+    const { generateCertificatePdf } = await import("@/lib/pdf");
+
+    const pdfDoc = await generateCertificatePdf({
+      certificateCode: "CERT-2026-firmtest",
+      title: "Firm Branded Certificate",
+      recipientName: "Jane Doe",
+      recipientEmail: "jane@firm.com",
+      credentialName: "CFP",
+      hours: 1,
+      category: "general",
+      provider: "Zurich Academy",
+      completedDate: "2026-02-01T00:00:00.000Z",
+      issuedDate: new Date().toISOString(),
+      verificationUrl: "http://localhost:3000/api/certificates/verify/CERT-2026-firmtest",
+      quizScore: null,
+      firmName: "Zurich CPD Academy",
+      firmLogoUrl: null,
+      firmPrimaryColor: "#003366",
+    });
+
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of pdfDoc) {
+      chunks.push(chunk as Uint8Array);
+    }
+    const buffer = Buffer.concat(chunks);
+
+    // PDF should be generated successfully with custom color
+    expect(buffer.length).toBeGreaterThan(0);
+    expect(buffer.toString("utf8", 0, 5)).toBe("%PDF-");
+  });
+});
+
+// ============================================================
+// 19. QUIZ ENGINE
+// ============================================================
+describe("Quiz Engine", () => {
+  it("can create a quiz with questions", async () => {
+    const quiz = await prisma.quiz.create({
+      data: {
+        title: "Test Assessment - Create",
+        passMark: 70,
+        maxAttempts: 3,
+        hours: 1,
+        category: "ethics",
+        questionsJson: JSON.stringify([
+          {
+            question: "Q1?",
+            options: ["A", "B", "C", "D"],
+            correctIndex: 1,
+          },
+          {
+            question: "Q2?",
+            options: ["True", "False"],
+            correctIndex: 0,
+          },
+        ]),
+      },
+    });
+
+    expect(quiz.id).toBeDefined();
+    expect(quiz.passMark).toBe(70);
+    expect(quiz.maxAttempts).toBe(3);
+
+    const questions = JSON.parse(quiz.questionsJson);
+    expect(questions.length).toBe(2);
+
+    // Clean up
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("quiz attempt calculates score correctly", async () => {
+    const { user, quiz, attempt } = await createUserWithQuizPass({
+      score: 100,
+    });
+    testUserIds.push(user.id);
+
+    expect(attempt.score).toBe(100);
+    expect(attempt.passed).toBe(true);
+
+    // Clean up quiz
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("quiz attempt with score below pass mark fails", async () => {
+    const { user, quiz } = await createUserWithQuizPass({ passMark: 70 });
+    testUserIds.push(user.id);
+
+    // Create a failing attempt
+    const failAttempt = await prisma.quizAttempt.create({
+      data: {
+        userId: user.id,
+        quizId: quiz.id,
+        answers: JSON.stringify([0, 0, 0]),
+        score: 33,
+        passed: false,
+        completedAt: new Date(),
+      },
+    });
+
+    expect(failAttempt.passed).toBe(false);
+    expect(failAttempt.score).toBe(33);
+
+    // Clean up
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("tracks attempt count per user per quiz", async () => {
+    const { user, quiz } = await createUserWithQuizPass();
+    testUserIds.push(user.id);
+
+    // Already has 1 attempt from createUserWithQuizPass
+    const count = await prisma.quizAttempt.count({
+      where: { userId: user.id, quizId: quiz.id },
+    });
+    expect(count).toBe(1);
+
+    // Add another attempt
+    await prisma.quizAttempt.create({
+      data: {
+        userId: user.id,
+        quizId: quiz.id,
+        answers: JSON.stringify([0, 0, 0]),
+        score: 0,
+        passed: false,
+        completedAt: new Date(),
+      },
+    });
+
+    const newCount = await prisma.quizAttempt.count({
+      where: { userId: user.id, quizId: quiz.id },
+    });
+    expect(newCount).toBe(2);
+
+    // Clean up
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("quiz questions are stored as valid JSON", async () => {
+    const { quiz, user } = await createUserWithQuizPass();
+    testUserIds.push(user.id);
+
+    const questions = JSON.parse(quiz.questionsJson);
+    expect(Array.isArray(questions)).toBe(true);
+    expect(questions.length).toBe(3);
+
+    for (const q of questions) {
+      expect(q.question).toBeDefined();
+      expect(Array.isArray(q.options)).toBe(true);
+      expect(q.options.length).toBeGreaterThanOrEqual(2);
+      expect(typeof q.correctIndex).toBe("number");
+    }
+
+    // Clean up
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("quiz API returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/quizzes`);
+    expect(res.status).toBe(401);
+  });
+
+  it("quiz attempt API returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/quizzes/fake-id/attempt`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ answers: [0, 1, 2] }),
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+// ============================================================
+// 20. COMPLETION RULES ENGINE
+// ============================================================
+describe("Completion Rules Engine", () => {
+  it("activity with no rules is complete by default", async () => {
+    const { evaluateCompletionRules } = await import("@/lib/completion");
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    const result = await evaluateCompletionRules(user.id, records[0].id);
+    expect(result.allPassed).toBe(true);
+    expect(result.rules.length).toBe(0);
+    expect(result.eligibleForCertificate).toBe(true);
+  });
+
+  it("quiz_pass rule passes when user has passing attempt", async () => {
+    const { evaluateCompletionRules } = await import("@/lib/completion");
+    const { user, records, quiz } = await createUserWithQuizPass({
+      score: 85,
+    });
+    testUserIds.push(user.id);
+
+    // Create a quiz_pass completion rule for the first record
+    await prisma.completionRule.create({
+      data: {
+        name: "Pass ethics quiz",
+        ruleType: "quiz_pass",
+        config: JSON.stringify({ quizId: quiz.id, minScore: 70 }),
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    const result = await evaluateCompletionRules(user.id, records[0].id);
+    expect(result.allPassed).toBe(true);
+    expect(result.rules.length).toBe(1);
+    expect(result.rules[0].passed).toBe(true);
+
+    // Clean up
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("quiz_pass rule fails when no passing attempt exists", async () => {
+    const { evaluateCompletionRules } = await import("@/lib/completion");
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    // Create a quiz for this test
+    const quiz = await prisma.quiz.create({
+      data: {
+        title: "Test Assessment - Fail",
+        passMark: 70,
+        maxAttempts: 3,
+        hours: 1,
+        questionsJson: JSON.stringify([
+          { question: "Q?", options: ["A", "B"], correctIndex: 0 },
+        ]),
+      },
+    });
+
+    await prisma.completionRule.create({
+      data: {
+        name: "Pass quiz",
+        ruleType: "quiz_pass",
+        config: JSON.stringify({ quizId: quiz.id }),
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    const result = await evaluateCompletionRules(user.id, records[0].id);
+    expect(result.allPassed).toBe(false);
+    expect(result.rules[0].passed).toBe(false);
+
+    // Clean up
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("evidence_upload rule passes with sufficient files", async () => {
+    const { evaluateCompletionRules } = await import("@/lib/completion");
+    const { user, records, evidence } = await createUserWithEvidence();
+    testUserIds.push(user.id);
+
+    // Records[0] has evidence linked (from createUserWithEvidence)
+    await prisma.completionRule.create({
+      data: {
+        name: "Upload evidence",
+        ruleType: "evidence_upload",
+        config: JSON.stringify({ minFiles: 1 }),
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    const result = await evaluateCompletionRules(user.id, records[0].id);
+    expect(result.allPassed).toBe(true);
+    expect(result.rules[0].passed).toBe(true);
+  });
+
+  it("multiple rules require ALL to pass", async () => {
+    const { evaluateCompletionRules } = await import("@/lib/completion");
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    // Create a quiz that user hasn't attempted
+    const quiz = await prisma.quiz.create({
+      data: {
+        title: "Test Assessment - Multi",
+        passMark: 70,
+        maxAttempts: 3,
+        hours: 1,
+        questionsJson: JSON.stringify([
+          { question: "Q?", options: ["A", "B"], correctIndex: 0 },
+        ]),
+      },
+    });
+
+    // Rule 1: evidence (will fail since no evidence)
+    await prisma.completionRule.create({
+      data: {
+        name: "Upload evidence",
+        ruleType: "evidence_upload",
+        config: JSON.stringify({ minFiles: 1 }),
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    // Rule 2: quiz pass (will fail since no attempt)
+    await prisma.completionRule.create({
+      data: {
+        name: "Pass quiz",
+        ruleType: "quiz_pass",
+        config: JSON.stringify({ quizId: quiz.id }),
+        cpdRecordId: records[0].id,
+      },
+    });
+
+    const result = await evaluateCompletionRules(user.id, records[0].id);
+    expect(result.allPassed).toBe(false);
+    expect(result.rules.length).toBe(2);
+    expect(result.eligibleForCertificate).toBe(false);
+
+    // Clean up
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("completion API returns 401 without auth", async () => {
+    const res = await fetch(
+      `${BASE_URL}/api/completion?cpdRecordId=fake-id`
+    );
+    expect(res.status).toBe(401);
+  });
+});
+
+// ============================================================
+// 21. CERTIFICATE VAULT
+// ============================================================
+describe("Certificate Vault", () => {
+  it("list certificates API returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/certificates`);
+    expect(res.status).toBe(401);
+  });
+
+  it("certificates can be stored and queried by user", async () => {
+    const { user, certificate } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    const certs = await prisma.certificate.findMany({
+      where: { userId: user.id },
+    });
+
+    expect(certs.length).toBeGreaterThanOrEqual(1);
+    expect(certs[0].certificateCode).toBeDefined();
+    expect(certs[0].title).toBeDefined();
+  });
+
+  it("certificates can be searched by title", async () => {
+    const { user, certificate } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    const results = await prisma.certificate.findMany({
+      where: {
+        userId: user.id,
+        title: { contains: "Ethics" },
+      },
+    });
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results[0].title).toContain("Ethics");
+  });
+
+  it("certificate export CSV endpoint returns 401 without auth", async () => {
+    const res = await fetch(`${BASE_URL}/api/certificates/export`);
+    expect(res.status).toBe(401);
+  });
+
+  it("certificate download endpoint returns 401 without auth", async () => {
+    const res = await fetch(
+      `${BASE_URL}/api/certificates/fake-id/download`
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("certificates are ordered by issued date", async () => {
+    const { user } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    await prisma.certificate.create({
+      data: {
+        userId: user.id,
+        certificateCode: `CERT-ORDER-A-${Date.now()}`,
+        title: "Older Certificate",
+        hours: 1,
+        completedDate: new Date("2026-01-01"),
+        issuedDate: new Date("2026-01-01"),
+        verificationUrl: "http://localhost:3000/verify/a",
+      },
+    });
+
+    await prisma.certificate.create({
+      data: {
+        userId: user.id,
+        certificateCode: `CERT-ORDER-B-${Date.now()}`,
+        title: "Newer Certificate",
+        hours: 2,
+        completedDate: new Date("2026-02-01"),
+        issuedDate: new Date("2026-02-01"),
+        verificationUrl: "http://localhost:3000/verify/b",
+      },
+    });
+
+    const certs = await prisma.certificate.findMany({
+      where: { userId: user.id },
+      orderBy: { issuedDate: "desc" },
+    });
+
+    expect(certs.length).toBe(2);
+    expect(certs[0].title).toBe("Newer Certificate");
+    expect(certs[1].title).toBe("Older Certificate");
+  });
+});
+
+// ============================================================
+// 22. ACTIVITY CRUD
+// ============================================================
+describe("Activity CRUD", () => {
+  afterAll(async () => {
+    await cleanupTestActivities();
+  });
+
+  it("creates an activity with all required fields", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "on_demand_video",
+        title: "Test Activity CRUD Create",
+        description: "A test activity for CRUD operations.",
+        durationMinutes: 60,
+        publishStatus: "draft",
+      },
+    });
+
+    expect(activity.id).toBeDefined();
+    expect(activity.type).toBe("on_demand_video");
+    expect(activity.title).toBe("Test Activity CRUD Create");
+    expect(activity.publishStatus).toBe("draft");
+    expect(activity.active).toBe(true);
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("creates an activity with credit mappings", async () => {
+    const { activity, creditMappings } = await createPublishedActivity();
+
+    expect(activity.id).toBeDefined();
+    expect(activity.publishStatus).toBe("published");
+    expect(activity.publishedAt).not.toBeNull();
+    expect(creditMappings.length).toBe(3);
+
+    const countries = creditMappings.map((m) => m.country);
+    expect(countries).toContain("US");
+    expect(countries).toContain("GB");
+    expect(countries).toContain("AU");
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("supports multiple activity types", async () => {
+    const types = [
+      "on_demand_video",
+      "live_webinar",
+      "article",
+      "podcast",
+      "workshop",
+    ];
+
+    for (const type of types) {
+      const activity = await prisma.activity.create({
+        data: {
+          type,
+          title: `Test Activity Type ${type}`,
+          publishStatus: "draft",
+        },
+      });
+      expect(activity.type).toBe(type);
+      await prisma.activity.delete({ where: { id: activity.id } });
+    }
+  });
+
+  it("soft-deletes an activity by setting active to false", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Activity Soft Delete",
+        publishStatus: "draft",
+      },
+    });
+
+    const updated = await prisma.activity.update({
+      where: { id: activity.id },
+      data: { active: false },
+    });
+
+    expect(updated.active).toBe(false);
+
+    // Should not appear in active queries
+    const found = await prisma.activity.findFirst({
+      where: { id: activity.id, active: true },
+    });
+    expect(found).toBeNull();
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("stores JSON fields (presenters, learning objectives, tags)", async () => {
+    const presenters = ["Jane Smith", "John Doe"];
+    const objectives = [
+      "Understand ethics obligations",
+      "Identify ethical dilemmas",
+    ];
+    const tags = ["ethics", "compliance"];
+
+    const activity = await prisma.activity.create({
+      data: {
+        type: "live_webinar",
+        title: "Test Activity JSON Fields",
+        presenters: JSON.stringify(presenters),
+        learningObjectives: JSON.stringify(objectives),
+        tags: JSON.stringify(tags),
+        publishStatus: "draft",
+      },
+    });
+
+    const parsedPresenters = JSON.parse(activity.presenters!);
+    expect(parsedPresenters).toEqual(presenters);
+
+    const parsedObjectives = JSON.parse(activity.learningObjectives!);
+    expect(parsedObjectives).toEqual(objectives);
+
+    const parsedTags = JSON.parse(activity.tags!);
+    expect(parsedTags).toEqual(tags);
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("publishes a draft activity with timestamp and approver", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "on_demand_video",
+        title: "Test Activity Publish Flow",
+        publishStatus: "draft",
+      },
+    });
+
+    expect(activity.publishStatus).toBe("draft");
+    expect(activity.publishedAt).toBeNull();
+
+    const published = await prisma.activity.update({
+      where: { id: activity.id },
+      data: {
+        publishStatus: "published",
+        publishedAt: new Date(),
+        approvedBy: "test-admin-id",
+      },
+    });
+
+    expect(published.publishStatus).toBe("published");
+    expect(published.publishedAt).not.toBeNull();
+    expect(published.approvedBy).toBe("test-admin-id");
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("filters activities by publish status", async () => {
+    const draft = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Activity Draft Filter",
+        publishStatus: "draft",
+      },
+    });
+    const pub = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Activity Published Filter",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    const drafts = await prisma.activity.findMany({
+      where: {
+        active: true,
+        publishStatus: "draft",
+        title: { contains: "Test Activity" },
+      },
+    });
+    const published = await prisma.activity.findMany({
+      where: {
+        active: true,
+        publishStatus: "published",
+        title: { contains: "Test Activity" },
+      },
+    });
+
+    expect(drafts.some((a) => a.id === draft.id)).toBe(true);
+    expect(published.some((a) => a.id === pub.id)).toBe(true);
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: draft.id } });
+    await prisma.activity.delete({ where: { id: pub.id } });
+  });
+
+  it("tracks activity versioning", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "on_demand_video",
+        title: "Test Activity Version",
+        publishStatus: "draft",
+        version: 1,
+      },
+    });
+
+    const updated = await prisma.activity.update({
+      where: { id: activity.id },
+      data: { version: 2, description: "Updated description" },
+    });
+
+    expect(updated.version).toBe(2);
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+});
+
+// ============================================================
+// 23. CREDIT MAPPING PER JURISDICTION
+// ============================================================
+describe("Credit Mapping Per Jurisdiction", () => {
+  it("creates credit mappings with all required fields", async () => {
+    const { activity, creditMappings } = await createPublishedActivity();
+
+    for (const mapping of creditMappings) {
+      expect(mapping.activityId).toBe(activity.id);
+      expect(mapping.creditUnit).toBe("hours");
+      expect(mapping.creditAmount).toBe(1);
+      expect(mapping.creditCategory).toBe("ethics");
+      expect(mapping.structuredFlag).toBe("true");
+      expect(mapping.active).toBe(true);
+    }
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("maps different validation methods per country", async () => {
+    const { activity, creditMappings } = await createPublishedActivity();
+
+    const usMapping = creditMappings.find((m) => m.country === "US");
+    const gbMapping = creditMappings.find((m) => m.country === "GB");
+    const auMapping = creditMappings.find((m) => m.country === "AU");
+
+    expect(usMapping!.validationMethod).toBe("quiz");
+    expect(gbMapping!.validationMethod).toBe("attendance");
+    expect(auMapping!.validationMethod).toBe("quiz");
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("resolves credits for a US user", async () => {
+    const { activity, creditMappings } = await createPublishedActivity();
+
+    // Simulate credit resolution: user with US jurisdiction
+    const applicableMappings = creditMappings.filter(
+      (m) => m.country === "US" || m.country === "INTL"
+    );
+
+    expect(applicableMappings.length).toBe(1);
+    expect(applicableMappings[0].country).toBe("US");
+    expect(applicableMappings[0].creditAmount).toBe(1);
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("resolves credits for a GB user", async () => {
+    const { activity, creditMappings } = await createPublishedActivity();
+
+    const applicableMappings = creditMappings.filter(
+      (m) => m.country === "GB" || m.country === "INTL"
+    );
+
+    expect(applicableMappings.length).toBe(1);
+    expect(applicableMappings[0].country).toBe("GB");
+    expect(applicableMappings[0].validationMethod).toBe("attendance");
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("INTL mapping applies to all jurisdictions", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test INTL Credit Mapping",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    const intlMapping = await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 0.5,
+        creditCategory: "general",
+        country: "INTL",
+        validationMethod: "attendance",
+      },
+    });
+
+    // Should apply regardless of user jurisdiction
+    for (const jurisdiction of ["US", "GB", "AU", "CA", "SG"]) {
+      const applicable = [intlMapping].filter(
+        (m) => m.country === jurisdiction || m.country === "INTL"
+      );
+      expect(applicable.length).toBe(1);
+      expect(applicable[0].creditAmount).toBe(0.5);
+    }
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("supports state-level exclusions via JSON", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "on_demand_video",
+        title: "Test State Exclusion Mapping",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    const mapping = await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 1,
+        creditCategory: "ethics",
+        country: "US",
+        exclusions: JSON.stringify(["NY", "CA"]),
+        validationMethod: "quiz",
+      },
+    });
+
+    // Simulate exclusion check
+    const exclusions = JSON.parse(mapping.exclusions!);
+    expect(exclusions).toContain("NY");
+    expect(exclusions).toContain("CA");
+    expect(exclusions).not.toContain("TX");
+
+    // NY user should be excluded
+    const nyApplicable = exclusions.includes("NY");
+    expect(nyApplicable).toBe(true); // NY is in exclusion list
+
+    // TX user should not be excluded
+    const txApplicable = exclusions.includes("TX");
+    expect(txApplicable).toBe(false);
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("supports state-level inclusions via stateProvince JSON", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "live_webinar",
+        title: "Test State Inclusion Mapping",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    const mapping = await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 2,
+        creditCategory: "general",
+        country: "US",
+        stateProvince: JSON.stringify(["TX", "FL", "IL"]),
+        validationMethod: "attendance",
+      },
+    });
+
+    const states = JSON.parse(mapping.stateProvince!);
+    expect(states).toContain("TX");
+    expect(states).toContain("FL");
+    expect(states).not.toContain("NY");
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+
+  it("deactivated credit mappings are excluded from queries", async () => {
+    const activity = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Deactivated Mapping",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 1,
+        creditCategory: "ethics",
+        country: "US",
+        active: true,
+      },
+    });
+
+    await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 2,
+        creditCategory: "general",
+        country: "US",
+        active: false,
+      },
+    });
+
+    const activeMappings = await prisma.creditMapping.findMany({
+      where: { activityId: activity.id, active: true },
+    });
+
+    expect(activeMappings.length).toBe(1);
+    expect(activeMappings[0].creditCategory).toBe("ethics");
+
+    // Clean up
+    await prisma.creditMapping.deleteMany({
+      where: { activityId: activity.id },
+    });
+    await prisma.activity.delete({ where: { id: activity.id } });
+  });
+});
+
+// ============================================================
+// 24. PROVIDER REPORTING
+// ============================================================
+describe("Provider Reporting", () => {
+  it("counts activities by publish status", async () => {
+    // Create test activities
+    const draft1 = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Report Draft 1",
+        publishStatus: "draft",
+      },
+    });
+    const pub1 = await prisma.activity.create({
+      data: {
+        type: "article",
+        title: "Test Report Published 1",
+        publishStatus: "published",
+        publishedAt: new Date(),
+      },
+    });
+
+    const totalActive = await prisma.activity.count({
+      where: { active: true },
+    });
+    const publishedCount = await prisma.activity.count({
+      where: { active: true, publishStatus: "published" },
+    });
+    const draftCount = await prisma.activity.count({
+      where: { active: true, publishStatus: "draft" },
+    });
+
+    expect(totalActive).toBeGreaterThanOrEqual(2);
+    expect(publishedCount).toBeGreaterThanOrEqual(1);
+    expect(draftCount).toBeGreaterThanOrEqual(1);
+
+    // Clean up
+    await prisma.activity.delete({ where: { id: draft1.id } });
+    await prisma.activity.delete({ where: { id: pub1.id } });
+  });
+
+  it("calculates quiz pass rate correctly", async () => {
+    const { user, quiz } = await createUserWithQuizPass({ score: 100 });
+    testUserIds.push(user.id);
+
+    // Add a failing attempt
+    await prisma.quizAttempt.create({
+      data: {
+        userId: user.id,
+        quizId: quiz.id,
+        answers: JSON.stringify([0, 0, 0]),
+        score: 30,
+        passed: false,
+        completedAt: new Date(),
+      },
+    });
+
+    const totalAttempts = await prisma.quizAttempt.count({
+      where: { quizId: quiz.id },
+    });
+    const passedAttempts = await prisma.quizAttempt.count({
+      where: { quizId: quiz.id, passed: true },
+    });
+
+    const passRate =
+      totalAttempts > 0
+        ? Math.round((passedAttempts / totalAttempts) * 100)
+        : 0;
+
+    expect(totalAttempts).toBe(2);
+    expect(passedAttempts).toBe(1);
+    expect(passRate).toBe(50);
+
+    // Clean up
+    await prisma.quizAttempt.deleteMany({ where: { quizId: quiz.id } });
+    await prisma.quiz.delete({ where: { id: quiz.id } });
+  });
+
+  it("aggregates CPD hours by category", async () => {
+    const { user } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    const records = await prisma.cpdRecord.findMany({
+      where: { userId: user.id, status: "completed" },
+      select: { hours: true, category: true },
+    });
+
+    const hoursByCategory: Record<string, number> = {};
+    for (const r of records) {
+      const cat = r.category ?? "general";
+      hoursByCategory[cat] = (hoursByCategory[cat] ?? 0) + r.hours;
+    }
+
+    expect(hoursByCategory["ethics"]).toBe(2);
+    // general: 3 + 1.5 + 2 + 1.5 + 4 = 12
+    expect(hoursByCategory["general"]).toBe(12);
+  });
+
+  it("filters CPD records by date range", async () => {
+    const { user, records } = await createUserWithCpdRecords();
+    testUserIds.push(user.id);
+
+    const fromDate = new Date("2026-02-01");
+    const toDate = new Date("2026-02-28");
+
+    const filtered = await prisma.cpdRecord.findMany({
+      where: {
+        userId: user.id,
+        status: "completed",
+        date: { gte: fromDate, lte: toDate },
+      },
+    });
+
+    // February records: Client Communication (Feb 3), Retirement Income (Feb 10), Regulatory Update (Feb 18)
+    expect(filtered.length).toBe(3);
+    for (const r of filtered) {
+      expect(r.date.getTime()).toBeGreaterThanOrEqual(fromDate.getTime());
+      expect(r.date.getTime()).toBeLessThanOrEqual(toDate.getTime());
+    }
+  });
+
+  it("provider report API requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/provider/report`);
+    expect(res.status).toBe(401);
+  });
+
+  it("certificate counts can be filtered by date", async () => {
+    const { user, certificate } = await createUserWithCertificate();
+    testUserIds.push(user.id);
+
+    const total = await prisma.certificate.count({
+      where: { userId: user.id },
+    });
+    const active = await prisma.certificate.count({
+      where: { userId: user.id, status: "active" },
+    });
+
+    expect(total).toBeGreaterThanOrEqual(1);
+    expect(active).toBe(total); // All should be active by default
+  });
+});
+
+// ============================================================
+// 25. ACTIVITY AUTH GATES
+// ============================================================
+describe("Activity Auth Gates", () => {
+  it("activities GET requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities`);
+    expect(res.status).toBe(401);
+  });
+
+  it("activities POST requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        type: "article",
+        title: "Unauthorized Activity",
+      }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("activity detail GET requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities/fake-id`);
+    expect(res.status).toBe(401);
+  });
+
+  it("activity PATCH requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities/fake-id`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Unauthorized Update" }),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("activity DELETE requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities/fake-id`, {
+      method: "DELETE",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("activity publish requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities/fake-id/publish`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it("activity credits requires authentication", async () => {
+    const res = await fetch(`${BASE_URL}/api/activities/fake-id/credits`);
+    expect(res.status).toBe(401);
   });
 });

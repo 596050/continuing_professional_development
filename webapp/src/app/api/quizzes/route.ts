@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const quizzesWithAttempts = await Promise.all(
     quizzes.map(async (quiz) => {
       const userAttempts = await prisma.quizAttempt.findMany({
-        where: { userId: session.user.id, quizId: quiz.id },
+        where: { userId: session.user!.id, quizId: quiz.id },
         orderBy: { startedAt: "desc" },
         select: { score: true, passed: true, startedAt: true },
       });

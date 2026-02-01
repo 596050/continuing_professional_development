@@ -1,0 +1,138 @@
+import { NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+
+// GET /api/provider/report - Provider reporting dashboard data
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Only admins and firm admins can access provider reports
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true, firmId: true },
+  });
+  if (!user || !["admin", "firm_admin"].includes(user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const fromDate = searchParams.get("from");
+  const toDate = searchParams.get("to");
+
+  // Date range filter
+  const dateFilter: { gte?: Date; lte?: Date } = {};
+  if (fromDate) dateFilter.gte = new Date(fromDate);
+  if (toDate) dateFilter.lte = new Date(toDate);
+
+  // Tenant scope: firm admins see their firm's data, platform admins see all
+  const tenantFilter = user.role === "firm_admin" && user.firmId
+    ? { tenantId: user.firmId }
+    : {};
+
+  // Activity stats
+  const [
+    totalActivities,
+    publishedActivities,
+    draftActivities,
+  ] = await Promise.all([
+    prisma.activity.count({
+      where: { ...tenantFilter, active: true },
+    }),
+    prisma.activity.count({
+      where: { ...tenantFilter, active: true, publishStatus: "published" },
+    }),
+    prisma.activity.count({
+      where: { ...tenantFilter, active: true, publishStatus: "draft" },
+    }),
+  ]);
+
+  // Certificate stats
+  const certWhere = dateFilter.gte || dateFilter.lte
+    ? { issuedDate: dateFilter }
+    : {};
+  const [
+    totalCertificates,
+    activeCertificates,
+  ] = await Promise.all([
+    prisma.certificate.count({ where: certWhere }),
+    prisma.certificate.count({ where: { ...certWhere, status: "active" } }),
+  ]);
+
+  // Quiz stats
+  const [
+    totalQuizAttempts,
+    passedQuizAttempts,
+  ] = await Promise.all([
+    prisma.quizAttempt.count({
+      where: dateFilter.gte || dateFilter.lte
+        ? { startedAt: dateFilter }
+        : {},
+    }),
+    prisma.quizAttempt.count({
+      where: {
+        passed: true,
+        ...(dateFilter.gte || dateFilter.lte
+          ? { startedAt: dateFilter }
+          : {}),
+      },
+    }),
+  ]);
+
+  // CPD hours issued
+  const completedRecords = await prisma.cpdRecord.findMany({
+    where: {
+      status: "completed",
+      source: "platform",
+      ...(dateFilter.gte || dateFilter.lte
+        ? { date: dateFilter }
+        : {}),
+    },
+    select: { hours: true, category: true },
+  });
+
+  const totalHoursIssued = completedRecords.reduce(
+    (sum, r) => sum + r.hours,
+    0
+  );
+
+  // Hours by category
+  const hoursByCategory: Record<string, number> = {};
+  for (const record of completedRecords) {
+    const cat = record.category ?? "general";
+    hoursByCategory[cat] = (hoursByCategory[cat] ?? 0) + record.hours;
+  }
+
+  // Completion conversion rate
+  const quizPassRate =
+    totalQuizAttempts > 0
+      ? Math.round((passedQuizAttempts / totalQuizAttempts) * 100)
+      : 0;
+
+  return NextResponse.json({
+    activities: {
+      total: totalActivities,
+      published: publishedActivities,
+      draft: draftActivities,
+    },
+    certificates: {
+      total: totalCertificates,
+      active: activeCertificates,
+    },
+    quizzes: {
+      totalAttempts: totalQuizAttempts,
+      passed: passedQuizAttempts,
+      passRate: quizPassRate,
+    },
+    credits: {
+      totalHoursIssued: Math.round(totalHoursIssued * 100) / 100,
+      hoursByCategory,
+    },
+    dateRange: {
+      from: fromDate ?? null,
+      to: toDate ?? null,
+    },
+  });
+}

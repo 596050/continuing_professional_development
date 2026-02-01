@@ -4,9 +4,6 @@
 
 # Dependencies
 node_modules/
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
 
 # Next.js
 .next/

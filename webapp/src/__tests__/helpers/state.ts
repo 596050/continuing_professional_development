@@ -260,15 +260,228 @@ export async function createUserWithReminders() {
 }
 
 // ------------------------------------------------------------------
+// State 6: User with a quiz and passing attempt
+// ------------------------------------------------------------------
+export async function createUserWithQuizPass(overrides?: {
+  passMark?: number;
+  score?: number;
+  hours?: number;
+}) {
+  const withRecords = await createUserWithCpdRecords();
+
+  const quiz = await prisma.quiz.create({
+    data: {
+      title: "Ethics in Financial Planning Assessment",
+      description: "Test your knowledge of ethics requirements.",
+      passMark: overrides?.passMark ?? 70,
+      maxAttempts: 3,
+      hours: overrides?.hours ?? 1,
+      category: "ethics",
+      activityType: "structured",
+      questionsJson: JSON.stringify([
+        {
+          question: "What is the primary purpose of CPD?",
+          options: [
+            "To meet regulatory requirements",
+            "To maintain and enhance professional competence",
+            "To earn certificates",
+            "To satisfy employers",
+          ],
+          correctIndex: 1,
+          explanation: "CPD ensures ongoing professional competence.",
+        },
+        {
+          question: "How often must CFP professionals complete ethics CE?",
+          options: ["Annually", "Every 2 years", "Every 5 years", "Never"],
+          correctIndex: 1,
+          explanation: "CFP ethics CE is required every 2-year cycle.",
+        },
+        {
+          question: "Which is a structured CPD activity?",
+          options: [
+            "Reading a trade magazine",
+            "Attending an accredited course",
+            "Chatting with colleagues",
+            "Browsing the internet",
+          ],
+          correctIndex: 1,
+        },
+      ]),
+    },
+  });
+
+  const score = overrides?.score ?? 100;
+  const attempt = await prisma.quizAttempt.create({
+    data: {
+      userId: withRecords.user.id,
+      quizId: quiz.id,
+      answers: JSON.stringify([1, 1, 1]),
+      score,
+      passed: score >= (overrides?.passMark ?? 70),
+      completedAt: new Date(),
+    },
+  });
+
+  return { ...withRecords, quiz, attempt };
+}
+
+// ------------------------------------------------------------------
+// State 7: User with a certificate
+// ------------------------------------------------------------------
+export async function createUserWithCertificate() {
+  const withRecords = await createUserWithCpdRecords();
+
+  const certificate = await prisma.certificate.create({
+    data: {
+      userId: withRecords.user.id,
+      certificateCode: `CERT-TEST-${uid()}`,
+      title: "Ethics in Financial Planning",
+      credentialName: "CFP",
+      hours: 2,
+      category: "ethics",
+      activityType: "structured",
+      provider: "CFP Board",
+      completedDate: new Date("2026-01-15"),
+      verificationUrl: `http://localhost:3000/api/certificates/verify/CERT-TEST-${uid()}`,
+      cpdRecordId: withRecords.records[0].id,
+    },
+  });
+
+  return { ...withRecords, certificate };
+}
+
+// ------------------------------------------------------------------
+// State 8: Published activity with credit mappings
+// ------------------------------------------------------------------
+export async function createPublishedActivity(overrides?: {
+  type?: string;
+  title?: string;
+  jurisdictions?: string[];
+}) {
+  const activity = await prisma.activity.create({
+    data: {
+      type: overrides?.type ?? "on_demand_video",
+      title: overrides?.title ?? "Ethics in Financial Planning Webinar",
+      description: "A comprehensive overview of ethics requirements for financial advisers.",
+      presenters: JSON.stringify(["Jane Smith", "John Doe"]),
+      durationMinutes: 60,
+      learningObjectives: JSON.stringify([
+        "Understand key ethics obligations",
+        "Identify common ethical dilemmas",
+        "Apply ethical frameworks to case studies",
+      ]),
+      tags: JSON.stringify(["ethics", "compliance", "financial-planning"]),
+      jurisdictions: JSON.stringify(overrides?.jurisdictions ?? ["US", "GB", "AU"]),
+      publishStatus: "published",
+      publishedAt: new Date(),
+    },
+  });
+
+  // Add credit mappings for multiple jurisdictions
+  const mappings = [];
+  mappings.push(
+    await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 1,
+        creditCategory: "ethics",
+        structuredFlag: "true",
+        country: "US",
+        validationMethod: "quiz",
+      },
+    })
+  );
+  mappings.push(
+    await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 1,
+        creditCategory: "ethics",
+        structuredFlag: "true",
+        country: "GB",
+        validationMethod: "attendance",
+      },
+    })
+  );
+  mappings.push(
+    await prisma.creditMapping.create({
+      data: {
+        activityId: activity.id,
+        creditUnit: "hours",
+        creditAmount: 1,
+        creditCategory: "ethics",
+        structuredFlag: "true",
+        country: "AU",
+        validationMethod: "quiz",
+      },
+    })
+  );
+
+  return { activity, creditMappings: mappings };
+}
+
+// ------------------------------------------------------------------
+// Cleanup: remove test activities
+// ------------------------------------------------------------------
+export async function cleanupTestActivities() {
+  const testActivities = await prisma.activity.findMany({
+    where: { title: { contains: "Test" } },
+    select: { id: true },
+  });
+  for (const a of testActivities) {
+    await prisma.creditMapping.deleteMany({ where: { activityId: a.id } });
+    await prisma.activity.delete({ where: { id: a.id } });
+  }
+  // Also clean up activities created by test helpers
+  const helperActivities = await prisma.activity.findMany({
+    where: { title: { contains: "Webinar" } },
+    select: { id: true },
+  });
+  for (const a of helperActivities) {
+    await prisma.creditMapping.deleteMany({ where: { activityId: a.id } });
+    await prisma.activity.delete({ where: { id: a.id } });
+  }
+}
+
+// ------------------------------------------------------------------
 // Cleanup: remove all test data for a user
 // ------------------------------------------------------------------
 export async function cleanupUser(userId: string) {
+  await prisma.certificate.deleteMany({ where: { userId } });
+  await prisma.quizAttempt.deleteMany({ where: { userId } });
   await prisma.reminder.deleteMany({ where: { userId } });
   await prisma.evidence.deleteMany({ where: { userId } });
+  // Remove completion rules linked to user's CPD records
+  const userRecords = await prisma.cpdRecord.findMany({
+    where: { userId },
+    select: { id: true },
+  });
+  if (userRecords.length > 0) {
+    await prisma.completionRule.deleteMany({
+      where: { cpdRecordId: { in: userRecords.map((r) => r.id) } },
+    });
+  }
   await prisma.cpdRecord.deleteMany({ where: { userId } });
   await prisma.userCredential.deleteMany({ where: { userId } });
   await prisma.onboardingSubmission.deleteMany({ where: { userId } });
   await prisma.user.delete({ where: { id: userId } });
+}
+
+// ------------------------------------------------------------------
+// Cleanup: remove test quizzes
+// ------------------------------------------------------------------
+export async function cleanupTestQuizzes() {
+  // Delete attempts first, then quizzes with test titles
+  const testQuizzes = await prisma.quiz.findMany({
+    where: { title: { contains: "Assessment" } },
+    select: { id: true },
+  });
+  for (const q of testQuizzes) {
+    await prisma.quizAttempt.deleteMany({ where: { quizId: q.id } });
+    await prisma.quiz.delete({ where: { id: q.id } });
+  }
 }
 
 // ------------------------------------------------------------------
@@ -282,4 +495,5 @@ export async function cleanupAllTestUsers() {
   for (const u of testUsers) {
     await cleanupUser(u.id);
   }
+  await cleanupTestQuizzes();
 }

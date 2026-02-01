@@ -611,12 +611,61 @@ Use an umbrella brand that isn't finance-coded:
   - GET /api/reminders/ics (generate .ics calendar file with dual alarms)
   - Reminder model in Prisma schema (deadline, progress, custom types)
 
+#### Certificate Engine + Quiz Mechanic (Sprint 1)
+- [x] Certificate PDF generator with QR verification
+  - POST /api/certificates (generate certificate with branded PDF, QR code, unique CERT-YYYY-xxxxxxxx code)
+  - GET /api/certificates (list with search, filter, pagination)
+  - GET /api/certificates/[id] (single certificate)
+  - PATCH /api/certificates/[id] (revoke/reactivate)
+  - GET /api/certificates/[id]/download (re-download PDF, regenerate if missing)
+  - GET /api/certificates/verify/[code] (public verification endpoint, no auth required)
+  - GET /api/certificates/export (CSV export of all certificates)
+  - Firm branding support (custom colors, firm name on certificates)
+  - QR code embedded via `qrcode` package
+- [x] Quiz/assessment engine
+  - GET/POST /api/quizzes (list available quizzes / create quiz with JSON question bank)
+  - GET/DELETE /api/quizzes/[id] (get quiz with questions stripped of answers / deactivate)
+  - POST /api/quizzes/[id]/attempt (submit answers, auto-grade, configurable pass mark + retries)
+  - Auto-generate certificate + CPD record on quiz pass
+  - Admin-only quiz creation (role gating)
+- [x] Completion rules engine (`src/lib/completion.ts`)
+  - GET /api/completion (check completion status for a CPD record)
+  - POST /api/completion (trigger certificate generation when all rules pass)
+  - 4 rule types: quiz_pass, evidence_upload, watch_time, attendance
+  - Multi-rule AND logic (all rules must pass for certificate eligibility)
+  - Auto-certificate generation on full completion
+- [x] Prisma schema expanded: Certificate, Quiz, QuizAttempt, CompletionRule models
+
+#### Content Model + Activity Catalog (Sprint 2)
+- [x] Activity model with full content metadata
+  - Activity schema: type, title, description, presenters, durationMinutes, learningObjectives, tags, jurisdictions, evidencePolicy, deliveryUrl, deliveryMeta, publishStatus, version, tenantId, createdBy, approvedBy
+  - CreditMapping schema: creditUnit, creditAmount, creditCategory, structuredFlag, country, stateProvince, exclusions, validationMethod, credentialId
+  - Soft-delete support (active flag), publish/draft workflow
+- [x] Activity CRUD API
+  - GET/POST /api/activities (list with filters: type, category, jurisdiction, search, status; create with credit mappings)
+  - GET/PATCH/DELETE /api/activities/[id] (detail with user credit view, update fields, soft-delete)
+  - POST /api/activities/[id]/publish (validate title + credit mappings, set publishedAt + approvedBy)
+  - Role-aware: non-admins see published only, admins see all statuses
+- [x] Multi-jurisdiction credit resolution
+  - GET /api/activities/[id]/credits (resolve per user credential profile)
+  - Country matching (exact + INTL fallback)
+  - State exclusions via JSON (e.g., "not approved in NY, CA")
+  - State inclusions via stateProvince JSON
+  - Credential-specific mappings
+- [x] Provider reporting dashboard
+  - GET /api/provider/report (admin/firm_admin only)
+  - Activity counts (total, published, draft), certificate stats, quiz pass rates
+  - CPD hours issued by category, date range filtering
+  - Tenant-scoped: firm_admins see their firm's data only
+- [x] Prisma schema expanded: Activity, CreditMapping models (20 models total)
+- [x] State helper: createPublishedActivity() (3 credit mappings: US, GB, AU)
+
 #### Testing
-- [x] Vitest integration test suite (108 tests covering all business features)
+- [x] Vitest integration test suite (167 tests covering all business features)
   - Credential database verification (all 14 credentials, rules, regions, verticals)
   - User signup flow (creation, validation, duplicate rejection, password rules)
   - Authentication gates (all 12 protected endpoints return 401)
-  - State-setting test helpers (5 user states for QA)
+  - State-setting test helpers (7 user states for QA)
   - Onboarding data creation and credential linking
   - CPD activity logging (structured, unstructured, verifiable, fractional hours)
   - Dashboard aggregation (total hours, ethics hours, structured hours, onboarding hours)
@@ -629,6 +678,15 @@ Use an umbrella brand that isn't finance-coded:
   - Page availability (all 5 pages load successfully)
   - Edge cases (zero hours, null deadlines, empty states, user isolation)
   - Credential-specific business rules (CFP 40h change, FCA 60% structured, IAR equal quotas)
+  - Certificate generation (creation, unique codes, verification, revocation)
+  - Certificate PDF (generation, QR code embedding, firm branding)
+  - Quiz engine (creation, grading, pass/fail, retry tracking)
+  - Completion rules (rule evaluation, multi-rule AND logic, auto-cert)
+  - Certificate vault (list, search, ordering, export CSV)
+  - Activity CRUD (creation, listing, filtering, publish workflow, soft-delete, versioning)
+  - Credit mapping per jurisdiction (multi-country, INTL fallback, state exclusions/inclusions)
+  - Provider reporting (aggregation, quiz pass rate, hours by category, date filtering)
+  - Activity auth gates (all 7 new endpoints return 401 without auth)
 - [x] Tests wired into production build (`npm run build` runs `vitest run` first)
 - [x] State-setting test helpers (`src/__tests__/helpers/state.ts`) for QA and E2E
 
@@ -666,13 +724,13 @@ Use an umbrella brand that isn't finance-coded:
   - [ ] Provider / accreditation body linkage
 - [ ] Micro-module player (10-20 min video/text units)
 - [ ] Live webinar scheduling + registration
-- [ ] Assessment engine (quiz mechanic to unlock certificates)
-  - [ ] Question bank per module
-  - [ ] Pass threshold configuration
-  - [ ] Retry logic
-- [ ] Certificate generator (PDF: name, date, duration, outcomes, provider)
-  - [ ] Template system (branded per provider/accreditor)
-  - [ ] Auto-issue on quiz pass
+- [x] Assessment engine (quiz mechanic to unlock certificates)
+  - [x] Question bank per module (JSON question bank with multiple-choice, true/false)
+  - [x] Pass threshold configuration (configurable pass mark per quiz)
+  - [x] Retry logic (configurable max attempts per quiz)
+- [x] Certificate generator (PDF: name, date, duration, outcomes, provider)
+  - [x] Template system (branded per provider/accreditor, firm branding support)
+  - [x] Auto-issue on quiz pass (via quiz attempt endpoint)
   - [ ] Manual issue for webinar attendance
 - [ ] Content editorial calendar tooling
 - [ ] Accreditation relationship management (CII, CISI, etc.)
@@ -1102,11 +1160,209 @@ If leaning learner-first ("wallet/transcript" positioning): **CreditVault.com** 
 
 ---
 
-## 19. Browser Plugin Architecture
+## 19. Browser Plugin: CPD Wallet for Financial Advisers
 
-### Overview
+The browser plugin is how you turn fragmented CPD into a single, low-friction ledger for advisers, without waiting for every provider to integrate on day one.
 
-A Chrome/Firefox browser extension that shares the webapp's backend, theming, and business logic. The plugin intercepts CPD/CE content on provider websites and offers one-click logging, certificate capture, and progress tracking without leaving the provider's page.
+### 19.1 Product Job-To-Be-Done
+
+**"Wherever I earn CPD/CE, capture it automatically, store the proof, and keep me audit-ready."**
+
+#### Core Wallet Functions
+
+1. Capture CPD activity across the web (webinars, videos, articles, PDFs)
+2. Classify it against adviser rules (structured/unstructured, category tags)
+3. Store evidence (certificates, screenshots, reflection notes)
+4. Show progress to requirements (per profile)
+5. Export an audit pack
+
+#### Non-Goals
+
+- The plugin must not "fake" CPD (no auto-complete without user action)
+- The plugin must not exfiltrate sensitive client data (financial advisers will have client portals open)
+- The plugin should not try to break platform ToS (avoid scraping behind auth without consent)
+
+### 19.2 Browser Extension Constraints (Manifest V3)
+
+Built on **Manifest V3** (service worker background). MV2 has been phased out across Chrome channels. [Chrome for Developers](https://developer.chrome.com/docs/extensions/develop/migrate/mv2-deprecation-timeline)
+
+Architecture implications:
+
+- Background logic runs in a service worker (not persistent)
+- Event-driven design required (wake on tab events, messages, alarms)
+
+### 19.3 User Flows (detailed)
+
+#### Flow A: Manual Quick-Capture (works everywhere; MVP)
+
+Adviser clicks extension icon -> "Log CPD". Picks: activity type (webinar / video / article / meeting / reading), minutes (timer or manual), structured/unstructured, category (ethics/technical/etc.). Attaches evidence: upload PDF, capture screenshot, paste URL. Saves.
+
+**Why it matters:** makes the wallet valuable even before integrations.
+
+**Implementation:** Popup UI + "Start timer" button. On save: create ledger entry in wallet backend + local cache. Optionally prompt for reflection notes.
+
+#### Flow B: Auto-Detect + Guided Capture (where most value is)
+
+Adviser opens a known CPD page (provider webinar page, on-demand video page, article page). Extension shows a small unobtrusive banner: "This looks like CPD. Track it?" One click: "Start tracking".
+
+**Tracking:** track time on page + video play state (where possible). Track completion: hits 80% watch OR user clicks "Mark complete" with attestation.
+
+**On completion:** extension prompts: "Add category + structured/unstructured", "Upload certificate" (or auto-detect download), "Add reflection (optional)". Saves to wallet.
+
+**Critical trust feature:** show the evidence basis: "Tracked 52:13 watched, 5:02 paused", "Quiz completed: yes/no", "Certificate attached: yes/no".
+
+#### Flow C: Certificate Auto-Capture
+
+Certificates are frequently downloaded as PDFs, opened in a new tab, or emailed.
+
+**In-browser capture:** detect PDF downloads (downloads API). If filename matches patterns ("certificate", "CPD", "CE"), prompt: "Save to wallet?" Parse PDF text to pre-fill fields (title/date/minutes/provider when available).
+
+**Limitation:** not all PDFs have extractable text; allow manual correction.
+
+#### Flow D: Provider-Integrated "Instant Log" (best UX)
+
+For providers integrated to your platform: provider portal emits a "completion event" to the extension, extension silently logs it to wallet and stores certificate pointer.
+
+**How:** Provider site includes a tiny JS snippet: `window.postMessage({type:"CPD_COMPLETED", payload:{...}})`. Extension content script listens for that message on whitelisted domains. Saves record with high confidence. This is the cleanest way to avoid fragile scraping.
+
+### 19.4 Detection Engine
+
+#### The Detection Stack (layered)
+
+1. **Domain allowlist** (highest confidence) - insurer / platform / CPD provider domains
+2. **Metadata signals** - JSON-LD fields (Course/Event where present), "learning objectives", "CPD", "CE credits", "certificate"
+3. **Page structure signals** - embedded webinar player / registration forms, known webinar platform markers
+4. **User confirmation** - never auto-log without user confirmation unless in provider-integrated mode
+
+Financial advisers browse client-related systems. You must reduce privacy risk by requiring explicit "Track this as CPD" action.
+
+### 19.5 Video/Watch-Time Tracking: What's Possible
+
+The YouTube API doesn't provide "how long a specific user watched a video." [Issue Tracker](https://issuetracker.google.com/issues/401460260). So you cannot rely on platform APIs for personal watch time.
+
+**Practical approach:**
+
+- For native HTML5 video (hosted by provider): track play/pause/timeupdate events
+- For embedded players: use in-page instrumentation where possible (postMessage / player APIs), if tracking isn't reliable, fall back to: timer + attestation, optional quiz/reflection prompt
+
+### 19.6 Extension Technical Architecture (MV3)
+
+#### Components
+
+**1. Service worker (background)** - Handles: auth token refresh, download detection, alarms (reminders), message routing between tabs and backend.
+
+**2. Content scripts** - Injected on: allowlisted CPD domains, user-activated "track this page" mode. Responsible for: reading metadata, tracking page/video activity, showing in-page banner UI.
+
+**3. UI surfaces** - Popup: quick actions ("Start tracking", "Log manually", "Upload certificate"). Side panel (recommended): transcript view, progress dashboard, "export pack".
+
+**4. Local storage** - Minimal local cache for offline usage: queued CPD entries, unsynced evidence metadata. Encrypt sensitive cache at rest.
+
+**5. Wallet backend API** - Stores: ledger entries, evidence artifacts (or pointers), rule pack progress.
+
+#### Authentication
+
+- OAuth/OIDC flow launched from extension
+- Store access token + refresh token in extension storage (encrypted)
+- Support "firm-managed" accounts later (SSO)
+
+#### Permissions (least privilege)
+
+- `storage` (local cache)
+- `activeTab` (only interact with current tab)
+- `downloads` (capture certificate PDFs)
+- `notifications` (reminders / "certificate saved")
+- Avoid blanket `tabs` permission unless truly needed
+
+### 19.7 Wallet Data Model (extension <-> backend)
+
+#### Key Entities
+
+- `User`
+- `CredentialProfile` - jurisdiction (UK/AUS/CAN/US), requirement pack version
+- `CPDEntry` - source_url, provider_name, activity_type, minutes, category tags, structured_flag, captured_evidence_level (none | url | timer | video_tracked | certificate | provider_verified), timestamps
+- `EvidenceArtifact` - pdf, screenshot, link, reflection notes, hash checksum
+- `AuditPack` - generated ZIP/PDF bundle
+
+#### Confidence Scoring
+
+Compute an internal confidence score per entry:
+
+| Score | Evidence Level |
+|-------|---------------|
+| 0.2 | Manual log only |
+| 0.5 | Tracked time + URL |
+| 0.8 | Certificate attached |
+| 1.0 | Provider-verified completion event |
+
+Helps the adviser and the firm see what's "audit strong."
+
+### 19.8 Firm Deployment Model
+
+Advisers often operate under a compliance function. Add:
+
+- "Firm workspace" where: staff can view aggregated CPD status, request audit packs, set internal policies (e.g., "ethics must be certificate-backed")
+- Chrome Enterprise deployment policies (managed installation)
+- Configure: allowed domains list, whether local storage allowed, whether screenshots allowed, whether export is enabled
+
+### 19.9 Plugin Implementation Epics
+
+#### Epic 1: MV3 Skeleton + Secure Auth
+
+- MV3 extension scaffold (service worker + popup)
+- OAuth login, token refresh + logout
+- Basic backend endpoints
+- **Acceptance:** user can log in/out, tokens rotate correctly, no sensitive data stored unencrypted
+
+#### Epic 2: Manual CPD Logging + Evidence Upload
+
+- "Log CPD" form, timer mode
+- Evidence upload (PDF)
+- Transcript list + basic export (CSV)
+- **Acceptance:** adviser can log 10 entries reliably, uploads persist, re-downloadable, export matches displayed ledger
+
+#### Epic 3: Domain Allowlist + Detection Banner
+
+- Allowlist configuration
+- Metadata extraction (title, duration, keywords)
+- In-page banner: "Track CPD?"
+- **Acceptance:** banner appears only on allowlisted domains, user opt-in required, no performance degradation
+
+#### Epic 4: Watch-Time Tracking (HTML5 + best-effort embeds)
+
+- Track play/pause/timeupdate
+- Heartbeat validation
+- Fallback to timer/attestation when uncertain
+- **Acceptance:** accurate tracked minutes within tolerance, clear user-facing explanation of what was tracked
+
+#### Epic 5: Certificate Auto-Capture
+
+- Detect PDF download events
+- Prompt to save to wallet
+- PDF text extraction + pre-fill fields (editable)
+- **Acceptance:** works for typical certificate PDFs, user can override parsed fields
+
+#### Epic 6: Provider-Verified Completion Events
+
+- Provider JS snippet spec
+- postMessage listener (domain-scoped)
+- High-confidence auto-log entries
+- **Acceptance:** completion event creates entry without manual typing, duplicate prevention (idempotency key)
+
+#### Epic 7: Rule-Aware Progress Dashboard
+
+- Profile setup (UK/AUS/CAN/US)
+- Progress dashboard (total hours, structured hours, category splits)
+- "What should I do next?" recommendations
+- **Acceptance:** entries roll up correctly per rule pack, export audit pack matches rule pack expectations
+
+### 19.10 How Plugin and Provider Platform Reinforce Each Other
+
+The real moat is the loop:
+
+- Providers use your platform to **issue credits + certificates** with minimal ops
+- Advisers use the plugin wallet to **collect and unify** CPD across providers
+- That makes providers more valuable if they integrate (their CPD becomes "one-click wallet compatible")
+- Over time, providers adopt your completion event snippet and stop building bespoke certificate flows
 
 ### Shared Codebase Strategy
 
@@ -1124,17 +1380,6 @@ continuing_professional_development/
     tests/             # Cross-project business logic tests
 ```
 
-### Plugin Features
-
-| Feature | Description |
-|---------|------------|
-| **CPD Activity Detection** | Recognise CPD content on provider pages (webinar completions, quiz results, certificate links) |
-| **One-Click Log** | Log CPD hours from provider pages directly to the user's account |
-| **Certificate Capture** | Save/screenshot certificates and auto-upload to evidence vault |
-| **Progress Sidebar** | Pop-out panel showing current progress, hours remaining, deadline countdown |
-| **Quick Search** | Search approved CPD activities by credential and category |
-| **Reminder Badges** | Badge icon showing days until deadline / hours remaining |
-
 ### Shared Test Strategy
 
 ```
@@ -1144,7 +1389,7 @@ shared/tests/
   theme.test.ts             # Design token consistency checks
 
 webapp/src/__tests__/
-  business-features.test.ts # Existing 108 tests (webapp integration)
+  business-features.test.ts # 167 tests (webapp integration)
 
 plugin/tests/
   popup.test.ts             # Extension popup UI tests
@@ -1153,7 +1398,7 @@ plugin/tests/
   integration.test.ts       # Plugin-to-backend integration tests
 ```
 
-All three test suites share the same credential rules, API contract shapes, and business logic assertions. The shared tests in `shared/tests/` are imported by both the webapp and plugin test suites.
+All three test suites share the same credential rules, API contract shapes, and business logic assertions.
 
 ### Backend Sharing
 
@@ -1162,34 +1407,42 @@ The plugin authenticates via the same NextAuth.js session (cookie-based for same
 - `GET /api/dashboard` - progress data for sidebar
 - `POST /api/cpd-records` - log activity from provider page
 - `POST /api/evidence` - upload captured certificate
+- `GET /api/certificates` - certificate vault for transcript view
 - `GET /api/reminders` - badge count data
 - `GET /api/export/compliance-brief` - quick PDF download
+- `GET /api/completion` - check completion rules status
 
 ---
 
-## 20. Next Feature Sprint: Provider Integration MVP
+## 20. Feature Sprint Roadmap
 
-Based on the market research, the next highest-value features to implement:
+### Sprint 1: Certificate Engine + Quiz Mechanic - COMPLETE
 
-### Sprint 1: Certificate Engine + Quiz Mechanic
+All items implemented and tested (167 tests passing):
 
-| Feature | Priority | Rationale |
-|---------|----------|-----------|
-| **Certificate PDF generator** (branded, with QR verification) | P0 | Every provider needs this; eliminates "where's my cert" tickets |
-| **Quiz/assessment engine** (configurable pass marks, retry logic) | P0 | Required for "verifiable" CPD proof; used by every major provider |
-| **Completion rules engine** (watch-time, quiz pass, attendance) | P0 | Automates the manual "did they qualify?" decision |
-| **Certificate vault** (permanent re-download, search, export) | P1 | Zurich's best-in-class pattern; major retention flywheel |
+| Feature | Status | Implementation |
+|---------|--------|---------------|
+| **Certificate PDF generator** (branded, with QR verification) | Done | `POST /api/certificates`, `GET /api/certificates/verify/[code]`, QR via `qrcode` package |
+| **Quiz/assessment engine** (configurable pass marks, retry logic) | Done | `POST /api/quizzes/[id]/attempt`, auto-grade, JSON question banks |
+| **Completion rules engine** (watch-time, quiz pass, attendance) | Done | `src/lib/completion.ts`, 4 rule types, multi-rule AND logic |
+| **Certificate vault** (permanent re-download, search, export) | Done | `GET /api/certificates` (list/search/filter), `GET /api/certificates/export` (CSV) |
 
-### Sprint 2: Content Ingestion + Provider Console
+### Sprint 2: Content Model + Activity Catalog - COMPLETE
 
-| Feature | Priority | Rationale |
-|---------|----------|-----------|
-| **Content model** (modules, webinars, articles with CPD metadata) | P0 | Foundation for all content features |
-| **YouTube/Vimeo ingestion** (wrap existing content with CPD logic) | P1 | USP 7: "content ingestion, not migration" |
-| **Webinar platform connectors** (ON24, Zoom attendance data) | P1 | Reduces provider platform sprawl |
-| **Provider admin console** (course builder, accreditation packs) | P2 | White-label ops for B2B tier |
+All items implemented and tested (167 tests passing):
 
-### Sprint 3: US State-by-State Automation
+| Feature | Status | Implementation |
+|---------|--------|---------------|
+| **Activity model** (Activity + CreditMapping schemas) | Done | `prisma/schema.prisma`: Activity (20+ fields) + CreditMapping models |
+| **Activity CRUD API** (create, list, get, update, publish/unpublish, soft-delete) | Done | `GET/POST /api/activities`, `GET/PATCH/DELETE /api/activities/[id]`, `POST /api/activities/[id]/publish` |
+| **Credit mapping per jurisdiction** (multi-jurisdiction credit views) | Done | `GET /api/activities/[id]/credits` - resolves per user credential profile, handles country/INTL matching, state exclusions/inclusions |
+| **Activity tagging taxonomy** (topics, level, jurisdiction, category) | Done | JSON fields: tags, jurisdictions, learningObjectives, presenters; type enum; filter by type/category/jurisdiction/search |
+| **External content linking** (deliveryUrl + deliveryMeta) | Done | Activity model supports deliveryUrl and deliveryMeta JSON for wrapping external content |
+| **Provider reporting** (completion + certificate + quiz stats) | Done | `GET /api/provider/report` - activity counts, certificate stats, quiz pass rates, hours by category, date range filtering, tenant scoping |
+| **Provider admin role gating** (admin, firm_admin) | Done | All write endpoints gated to admin/firm_admin roles; firm_admin sees tenant-scoped data only |
+| **Activity publish workflow** (validation, approver tracking) | Done | Must have title + at least one credit mapping; sets publishedAt + approvedBy; non-admins see published only |
+
+### Sprint 3: US State-by-State Automation (NEXT)
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
@@ -1198,15 +1451,359 @@ Based on the market research, the next highest-value features to implement:
 | **NASAA IAR state adoption tracker** | P1 | Rolling state adoption creates ongoing confusion |
 | **Multi-state CE credit display** | P1 | Show which states a course is approved for |
 
-### Sprint 4: Browser Plugin MVP
+### Sprint 4: Tenant Provisioning + White-Label
+
+| Feature | Priority | Rationale |
+|---------|----------|-----------|
+| **Tenant service** (creation, config, feature flags, domain mapping) | P0 | Multi-tenant foundation from Section 21.2 |
+| **White-label portal theming** (per-tenant branding tokens) | P0 | Providers keep their brand |
+| **Tenant-scoped data isolation** | P0 | Non-functional requirement; must be demonstrably correct |
+| **Provider onboarding wizard** (guided setup for new provider tenants) | P1 | Repeatable provisioning from Section 21.4 |
+
+### Sprint 5: Browser Plugin MVP
 
 | Feature | Priority | Rationale |
 |---------|----------|-----------|
 | **Shared package extraction** (types, rules, theme, API client) | P0 | Foundation for code sharing |
-| **Chrome extension scaffold** (manifest v3, popup, content script) | P0 | Basic plugin structure |
+| **Chrome extension scaffold** (MV3, popup, content script, service worker) | P0 | Basic plugin structure per Section 19.6 |
+| **Manual CPD logging** (quick-capture from popup) | P0 | Epic 2 from Section 19.9; valuable immediately |
 | **Progress sidebar popup** | P1 | Core user value: see progress without navigating away |
-| **One-click CPD logging from provider pages** | P1 | Eliminates manual logging friction |
-| **Certificate screenshot capture** | P2 | Auto-evidence collection |
+| **Domain allowlist + detection banner** | P1 | Epic 3; guided capture on provider pages |
+| **Certificate auto-capture** (PDF download detection) | P2 | Epic 5; auto-evidence collection |
+
+---
+
+## 21. Provider Integration Implementation Blueprint
+
+A complete implementation plan for integrating CPD/CE providers into the platform. Covers end-to-end: identity, content ingestion, attendance, certificates, transcripts, CRM, analytics, and ops.
+
+### 21.0 Define "Integration Success" Before Any Code
+
+#### Integration Outcomes (must be true on Day 1)
+
+**Learner outcomes**
+
+- A learner can discover activities, register/consume, and automatically receive: completion record, certificate/evidence, credit mapping (structured/unstructured, category tags, jurisdiction applicability)
+- A learner can export an "audit pack" at any time
+
+**Provider outcomes**
+
+- Provider staff can publish new CPD content without engineers
+- Provider staff can see registration + attendance + completion + certificate issuance reporting
+- Provider staff can run compliance-grade exports (audit trail) on demand
+- Provider keeps their brand + audience relationship
+
+**Platform outcomes**
+
+- Reliable, provable completion events ("credit issuance ledger")
+- Scale to many providers without one-off code
+
+#### Non-Functional Success Criteria
+
+- Tenant data isolation is demonstrably correct
+- Certificate and transcript data are immutable once issued (append-only model)
+- Evidence artifacts have retention policies and secure access controls
+- Systems remain usable during webinar peaks (thundering herds)
+- Integrations recover gracefully from API throttling and delays
+
+### 21.1 Integration Modes (3 lanes)
+
+Providers have legacy stacks and internal politics. Offer three integration "lanes":
+
+#### Lane A: Hosted Academy (maximum standardisation)
+
+Host the provider's CPD portal (white-labeled). Your catalogue pages, your player, your quiz engine, your certificates, your transcript. Provider connects identity + branding + (optional) webinar platform.
+
+**Best for:** providers with weak or messy current CPD experiences; small teams; high support burden.
+
+#### Lane B: BYO Delivery, Your CPD Layer (most common; fastest)
+
+Provider keeps their webinar/video hosting and possibly their website pages. You provide: registration/identity linking, completion verification, quiz/reflection (optional), certificate issuance + vault, transcript/wallet + exports.
+
+**Best for:** insurers/platforms/asset managers with existing webinar operations.
+
+#### Lane C: Data Federation (minimum intrusion)
+
+Provider stays on their current LMS/webinar stack. They push completion and certificate issuance events to your platform via API/webhooks.
+
+**Best for:** large orgs that won't change UX but want to outsource wallet/transcript, rules, and audit packs.
+
+**Key design choice:** implement Lane A and B as first-class, Lane C as API-only.
+
+### 21.2 Reference Architecture (multi-tenant provider portals + global wallet)
+
+#### Core Components
+
+| # | Service | Purpose |
+|---|---------|---------|
+| 1 | **Tenant Service** | Tenant creation, config, feature flags, domain mapping, branding assets, email templates, legal text per tenant |
+| 2 | **Identity & Consent Service** | OIDC/SAML (and magic link), consent capture (privacy, data sharing to wallet), account linking across tenants |
+| 3 | **Content & Activity Service** | Activity catalog (webinar, on-demand, article, bundle), tagging taxonomy, versioning |
+| 4 | **Registration & Attendance Service** | Registration forms / lead capture, webinar platform connectors (attendance import), attendance rules evaluation |
+| 5 | **Assessment Service** | Quiz, polls, reflection prompts, pass/fail, attempts, remediation |
+| 6 | **Credit & Rules Engine** | Credit issuance logic, jurisdiction mapping, structured vs unstructured, state/province restriction logic |
+| 7 | **Certificate & Evidence Service** | Template engine (HTML to PDF), certificate signing/verification ID + QR, evidence artifact storage + access controls |
+| 8 | **Wallet / Transcript Service** | Unified transcript ledger (across providers), audit pack builder (PDF transcript + ZIP evidence) |
+| 9 | **Provider Reporting & Analytics** | Attendance funnels, completion rates, content performance, exports (CSV, API, scheduled) |
+| 10 | **Integration Hub** | OAuth credential vault, webhooks in/out, backfill jobs, retry queues, dead letter handling |
+
+#### Data Stores
+
+- OLTP: Postgres (multi-tenant)
+- Search: OpenSearch / Elasticsearch (catalog search)
+- Objects: S3-compatible for PDFs, ZIP audit packs
+- Event bus: Kafka/PubSub/SQS + SNS (for integration resiliency)
+- Analytics: warehouse (Snowflake/BigQuery) + dbt-style transforms
+
+#### Security Primitives
+
+- Per-tenant encryption keys (KMS)
+- PII minimisation (especially for cross-provider wallet)
+- Immutable audit log (append-only table + hashing chain per learner optional)
+
+### 21.3 Provider Onboarding: Governance + Security + Data Mapping
+
+#### Provider Onboarding Package (what you ask for)
+
+- Brand assets (logo, colors, typography, legal footer)
+- CPD/CE policy position: what they consider "structured/verifiable", completion thresholds (e.g., 80% watch + quiz pass), certificate language and disclaimers
+- Jurisdictions they care about (UK / AUS / CAN / USA)
+- Identity model: adviser-only verification? SSO to corporate IdP?
+- Current delivery stack: webinar platform(s), video hosting, LMS (if any), CRM/marketing automation
+- Existing content inventory: titles, descriptions, durations, learning objectives, certificate templates
+- Reporting needs: export fields, compliance retention requirements
+- Privacy constraints: data residency, DPA requirements, whether they allow sharing learner completion into a third-party wallet
+
+#### Privacy Modes
+
+**Mode 1: Tenant-only transcript** - Learner transcript lives inside the provider tenant.
+
+**Mode 2: Global wallet (cross-provider)** - Learner explicitly opts into a global wallet. Store: minimal identity (email hash + optional verified email), completion ledger entries, evidence artifacts (or pointers if provider forbids external storage).
+
+**Critical:** make Mode 1 usable on its own. Global wallet becomes a value-add when providers accept it.
+
+### 21.4 Tenant Provisioning (repeatable, automated)
+
+#### Tenant Creation Workflow
+
+- Create tenant record
+- Allocate tenant key + encryption key
+- Provision default config: language(s), timezone, date formats, default CPD categories (tenant-specific), certificate template pack, email domains and SPF/DKIM settings
+
+#### White-Label Portal Setup
+
+- `academy.provider.com` custom domain (CNAME)
+- TLS issuance and renewal
+- Provider-branded theme tokens
+- URL structure: `/events` (live), `/library` (on-demand), `/courses` (modules), `/my-cpd` (transcript + certificates)
+
+#### Content Governance Controls
+
+- Roles: Publisher (create/edit), Compliance approver (approve before publish), Analyst (reporting only)
+- Approval workflows: draft -> compliance review -> published
+- Versioning: preserve past activity versions for audit integrity
+
+### 21.5 Identity Integration (SSO + account linking + adviser verification)
+
+#### Identity Patterns to Support
+
+1. **Public registration** (email + verification)
+2. **Invite-only** (provider sends invites, only invited can access)
+3. **SSO** (SAML/OIDC to provider IdP)
+4. **Partner SSO** (if provider is part of a network)
+
+#### Account Linking for the Wallet
+
+- Primary identifier: verified email (plus hashed email for cross-tenant mapping)
+- Optional identifiers: CRM contact ID, adviser registration ID, etc.
+- Linking UX: "This looks like you. Link accounts?" with explicit consent
+
+#### Adviser-Only Gating (optional but common)
+
+- "soft gate" on library: title/description visible
+- "hard gate" at certificate/credit issuance stage: verify email domain / invite list / SSO claim, then allow certificate + transcript entry
+
+### 21.6 Content Ingestion & Modelling
+
+#### Canonical "Activity" Schema (minimum fields)
+
+- `activity_id` (stable, never reused)
+- `type`: live_webinar | on_demand_video | article | assessment_only | bundle
+- `title`, `description`, `presenters`
+- `duration_minutes` (declared)
+- `learning_objectives[]`
+- `tags[]` (topics, level)
+- `jurisdictions[]` (UK/AUS/CAN/US)
+- `credit_map[]` (see below)
+- `evidence_policy` (certificate required? reflection required?)
+- `delivery`: URL (hosted or external), webinar platform metadata (webinar ID, occurrence rules)
+- `publish_status` + version
+
+#### Credit Mapping Schema (the moat)
+
+Credit rules differ by regulator and sometimes by state/province:
+
+- `credit_unit`: minutes | hours | credits | points | PDH
+- `credit_amount`
+- `credit_category`: ethics | professionalism | technical | practice_mgmt | other
+- `structured_flag`: true/false/conditional
+- `jurisdiction_scope`: country (UK/AU/CA/US), optional state/province list, exclusions list (US state approvals)
+- `validation_method`: attendance | quiz | reflection | attestation
+
+This lets a single activity issue different "credit views" depending on user profile.
+
+### 21.7 Delivery Integrations (live webinars, on-demand, articles)
+
+#### Live Webinars: The Gold Standard Workflow
+
+**Goal:** registration + attendance import + rule evaluation + certificate issuance + transcript entry.
+
+**Step A: Create webinar record** - Provider creates activity in console, chooses webinar platform (Zoom, Microsoft Teams via Graph, ON24), stores external webinar identifiers + schedule.
+
+**Step B: Registration** - Two patterns: "Register on our portal" (recommended, you collect identity once, register in webinar platform via API), or "Register on webinar platform" (fallback, capture identity later via email matching).
+
+**Step C: Attendance import and evaluation** - Scheduled job + webhook ingestion where available:
+
+- **Teams / Microsoft Graph** - Attendance reports and attendance records are accessible via Graph APIs (meetingAttendanceReport and attendanceRecord patterns). [Microsoft Learn](https://learn.microsoft.com/en-us/graph/api/meetingattendancereport-get?view=graph-rest-1.0)
+- **ON24** - REST API integration model with API tokens/secret keys. [ON24 Support](https://support.on24.com/hc/en-us/articles/21420786301083-REST-API-Integrations-Overview)
+- **Zoom** - Webinar participant reports via reporting endpoints with scopes and rate limits. [Postman](https://www.postman.com/zoom-developer/zoom-public-workspace/request/hde4qmg/get-webinar-participant-reports)
+
+**Step D: Credit issuance** - Once attendance meets threshold: create immutable "completion" record, create "credit issuance" record(s) (may be multiple, per jurisdiction), generate certificate PDF, add entry to learner transcript.
+
+**Step E: Learner experience** - "You earned X minutes/credits", download certificate, "Add reflection notes" (optional), "Export audit pack".
+
+#### On-Demand Video: Watch-Time + Quiz at Scale
+
+**Goal:** prove engagement without expensive live ops.
+
+- If hosted by you: use player instrumentation (timeupdate events, heartbeat), store play sessions with anti-tamper checks
+- If embedded (YouTube/Vimeo): track within embedding page, treat as "attestation + optional quiz" unless you can instrument reliably
+
+**Anti-fraud controls:** heartbeat checks (every 15 seconds), require active tab (configurable), detect "2x speed allowed?" (provider policy choice), require quiz pass for issuance (recommended if you can't fully trust watch-time).
+
+#### Articles and "Read-and-Reflect"
+
+- Reading timer + scroll depth
+- 3-5 question knowledge check OR reflection prompts
+- Certificate issued when conditions met
+- Transcript entry tagged as structured/unstructured depending on jurisdiction and policy
+
+#### External Content Logging
+
+Learners will still do CPD outside your providers. Implement a "Log external CPD" form: title, provider, date, minutes/credits, category + structured flag, evidence upload (PDF, screenshot), optional manager approval (for firms). Essential for making the wallet "the single source of truth."
+
+### 21.8 Certificate and Evidence: Maintenance-Free for Providers
+
+#### Certificate Generation (template system)
+
+- HTML templates with variable tokens: learner name, activity title, duration, learning objectives, completion timestamp, certificate ID + verification URL/QR
+- Tenant-specific branding (logo, footer legal text)
+
+#### Certificate Verification
+
+- Public endpoint: `/certificates/{id}`
+- Shows non-sensitive fields: certificate ID, provider name, title, date, credit amount
+- Optional: verification code printed on PDF
+
+#### Evidence Vault
+
+- Store certificates + evidence attachments in object storage
+- Access governed by: learner ownership, firm admin roles (if B2B), provider admin (only for their tenant learners)
+
+#### Retention and Portability
+
+- Default retention: multi-year (audits happen later)
+- Allow learners to export: transcript CSV, full evidence ZIP ("audit pack")
+
+### 21.9 Provider Reporting: What They Actually Need (and Will Pay For)
+
+#### Reporting Dashboards
+
+- Registrations by source (UTM, referrer)
+- Attendance rate + drop-off
+- Completion conversion (attended -> credited)
+- Quiz pass rates
+- Certificates issued
+- Repeat attendees (retention)
+- "Hours issued" (their brag metric)
+
+#### Exports (the operational painkiller)
+
+- Attendance export with join/leave, minutes attended
+- Credit issuance export
+- Certificate re-issue logs (support reduction)
+- Audit trail export (immutable ledger)
+
+#### Scheduled Reporting
+
+Providers love "email me Monday at 9am":
+
+- Weekly performance digest
+- Monthly CPD issued digest
+- Per-event "post-webinar report pack"
+
+### 21.10 Connector Framework
+
+Build a connector framework so every new provider doesn't cost custom engineering.
+
+#### Connector Requirements
+
+- OAuth credential store per provider tenant
+- Webhook receiver with tenant routing
+- Backfill engine: pull "last N days" of events if webhook missed, idempotent upserts
+- Retry with exponential backoff and dead-letter queue
+- Mapping layer: email normalization, external IDs to internal IDs
+
+#### Practical Connector Targets (initial)
+
+- Webinar platforms (attendance import)
+- Video hosting (if you host)
+- Calendar (ICS generation)
+- Identity (SSO)
+- CRM sync (at least outbound webhooks; then native integrations later)
+
+### 21.11 Multi-Jurisdiction Rules: Do It Once, Reuse Forever
+
+Building for financial advisers across: FCA, ASIC, FP Canada, FINRA, state-level regulators.
+
+**Implementation approach:** A "Rule Pack" is a versioned JSON (or DSL) that defines: cycle length, minimum totals, category constraints, what counts as structured/verifiable, evidence requirements, audit export format.
+
+**Key design requirement:** rule packs must be **versioned and date-effective** (rules change; you must keep historical correctness).
+
+### 21.12 QA/UAT and Go-Live (repeatable checklists)
+
+#### UAT Scripts (per provider, per activity type)
+
+**Live webinar:** registration works (and correct platform registration created if applicable), attendance imported after event ends, credit issued only when threshold met, certificate generated correctly with correct metadata, transcript entry appears, provider report shows attendee.
+
+**On-demand:** video progress captured, quiz gate works, certificate and transcript correct.
+
+**External log:** user logs, evidence stored, export works.
+
+#### Go-Live Checklist
+
+- Domain + TLS validated
+- Email deliverability (SPF/DKIM) set
+- Tokens configured in connector vault
+- Monitoring alerts set (API errors, webhook failures)
+- Support playbook: "I didn't get a certificate", "It says I didn't attend", "I used a different email"
+- Backfill job run for initial historical content (if required)
+
+### 21.13 Ongoing Ops: Eliminate Maintenance for Providers
+
+What you sell: providers stop building ad hoc CPD mini-sites every year, stop manually sending certificates, stop reconciling attendance spreadsheets, stop answering the same support tickets.
+
+**What you run as a managed service:** connector health monitoring, automatic backfills after outages, certificate template updates (compliance changes), rules pack updates (jurisdiction changes), security patching and platform upgrades.
+
+### 21.14 Provider-Facing USPs (implementation terms)
+
+| # | USP | What It Delivers |
+|---|-----|-----------------|
+| 1 | **Stop building CPD microsites** | White-label academy + certificate + transcript out of the box |
+| 2 | **Stop running certificate operations** | Automatic issuance + permanent re-download vault |
+| 3 | **Stop reconciling attendance spreadsheets** | Attendance connectors + rule-based credit issuance + audit exports (especially valuable in US state-by-state complexity) |
+| 4 | **Stop losing learner proof** | Wallet + evidence vault + audit packs reduce support and improve retention |
+| 5 | **Integrate once; keep your stack** | BYO delivery lane means they don't migrate everything, just wrap it with your CPD OS |
 
 ---
 
@@ -1218,4 +1815,4 @@ To narrow this into execution-ready materials, decide:
 2. **Option 1 or 2 for content?** (Partner/affiliate vs own accreditation)
 3. **Domain name** (verify availability, register)
 
-From there: single best wedge offer → 3 exact landing page variants → keyword list + ad copy pack → launch.
+From there: single best wedge offer -> 3 exact landing page variants -> keyword list + ad copy pack -> launch.

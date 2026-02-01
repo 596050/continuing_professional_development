@@ -355,6 +355,61 @@ model CompletionRule {
 }
 
 // ---------------------------------------------------------------------------
+// Activities & Content Catalog
+// ---------------------------------------------------------------------------
+
+model Activity {
+  id              String   @id @default(cuid())
+  tenantId        String?  // null = platform-owned; otherwise provider tenant
+  type            String   // live_webinar | on_demand_video | article | assessment_only | bundle
+  title           String
+  description     String?
+  presenters      String?  // JSON array of presenter names
+  durationMinutes Int?     // declared duration
+  learningObjectives String? // JSON array of learning objective strings
+  tags            String?  // JSON array of topic/level tags
+  jurisdictions   String?  // JSON array of jurisdiction codes (UK, AU, CA, US)
+  evidencePolicy  String?  // JSON: { certificateRequired, reflectionRequired, quizRequired }
+  deliveryUrl     String?  // URL for external content (YouTube, Vimeo, provider page)
+  deliveryMeta    String?  // JSON: { platform, webinarId, occurrenceRules }
+  publishStatus   String   @default("draft") // draft | review | published | archived
+  version         Int      @default(1)
+  createdBy       String?  // userId of creator
+  approvedBy      String?  // userId of compliance approver
+  publishedAt     DateTime?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  creditMappings  CreditMapping[]
+  quizId          String?  // optional linked quiz
+
+  @@index([tenantId, publishStatus])
+  @@index([type, active])
+}
+
+model CreditMapping {
+  id              String   @id @default(cuid())
+  activityId      String
+  creditUnit      String   @default("hours") // hours | minutes | credits | points | PDH
+  creditAmount    Float
+  creditCategory  String   // ethics | professionalism | technical | practice_mgmt | general | other
+  structuredFlag  String   @default("true") // true | false | conditional
+  country         String   // UK | AU | CA | US | SG | HK | INTL
+  stateProvince   String?  // JSON array of state/province codes (for US state-by-state)
+  exclusions      String?  // JSON array of excluded states/provinces
+  validationMethod String  @default("attendance") // attendance | quiz | reflection | attestation
+  credentialId    String?  // optional: which specific credential this mapping applies to
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@index([activityId, country])
+  @@index([credentialId])
+}
+
+// ---------------------------------------------------------------------------
 // Usage Analytics
 // ---------------------------------------------------------------------------
 
