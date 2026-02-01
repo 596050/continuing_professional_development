@@ -62,7 +62,7 @@ export function FAQ() {
               <dt>
                 <button
                   onClick={() => setOpenIndex(openIndex === i ? null : i)}
-                  className="flex w-full items-start justify-between text-left"
+                  className="flex w-full cursor-pointer items-start justify-between text-left hover:text-accent transition-colors"
                 >
                   <span className="text-base font-semibold text-text">{faq.question}</span>
                   <span className="ml-6 flex-shrink-0">

@@ -1,9 +1,9 @@
 # Ralph
-.ralph-tools/
 .ralph/logs/
 
 # Dependencies
 node_modules/
+node_modules
 
 # Next.js
 .next/

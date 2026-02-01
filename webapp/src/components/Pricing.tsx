@@ -136,10 +136,10 @@ export function Pricing() {
           {tiers.map((tier) => (
             <div
               key={tier.name}
-              className={`relative flex flex-col rounded-2xl bg-white p-8 ${
+              className={`relative flex flex-col rounded-2xl bg-white p-8 transition-shadow ${
                 tier.highlight
-                  ? "ring-2 ring-accent shadow-xl"
-                  : "border border-border shadow-sm"
+                  ? "ring-2 ring-accent shadow-xl hover:shadow-2xl"
+                  : "border border-border shadow-sm hover:shadow-lg"
               }`}
             >
               {tier.highlight && (
@@ -191,14 +191,14 @@ export function Pricing() {
                 <button
                   onClick={() => handleCheckout(tier.planKey!)}
                   disabled={loadingPlan === tier.planKey}
-                  className={`mt-8 block w-full rounded-lg px-6 py-3 text-center text-sm font-semibold transition disabled:opacity-50 ${tier.ctaStyle}`}
+                  className={`mt-8 block w-full cursor-pointer rounded-lg px-6 py-3 text-center text-sm font-semibold transition active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed ${tier.ctaStyle}`}
                 >
                   {loadingPlan === tier.planKey ? "Loading..." : tier.cta}
                 </button>
               ) : (
                 <a
                   href={tier.name === "Firm" ? "mailto:hello@auditreadycpd.com" : "#"}
-                  className={`mt-8 block rounded-lg px-6 py-3 text-center text-sm font-semibold transition ${tier.ctaStyle}`}
+                  className={`mt-8 block cursor-pointer rounded-lg px-6 py-3 text-center text-sm font-semibold transition active:scale-[0.97] ${tier.ctaStyle}`}
                 >
                   {tier.cta}
                 </a>

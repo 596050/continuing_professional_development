@@ -18,13 +18,13 @@ export function Hero() {
         <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
           <a
             href="#pricing"
-            className="rounded-lg bg-accent px-8 py-4 text-lg font-semibold text-white shadow-lg transition hover:bg-accent-dark"
+            className="rounded-lg bg-accent px-8 py-4 text-lg font-semibold text-white shadow-lg transition hover:bg-accent-dark active:bg-accent-700 active:shadow-md"
           >
             Get set up - from $119
           </a>
           <a
             href="/dashboard"
-            className="rounded-lg border border-primary-400 bg-primary-500/30 px-8 py-4 text-lg font-semibold text-white transition hover:bg-primary-500/50"
+            className="rounded-lg border border-primary-400 bg-primary-500/30 px-8 py-4 text-lg font-semibold text-white transition hover:bg-primary-500/50 active:bg-primary-500/70"
           >
             Try now - free demo
           </a>

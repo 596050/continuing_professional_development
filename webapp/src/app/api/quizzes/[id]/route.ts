@@ -57,6 +57,65 @@ export async function GET(
   });
 }
 
+// PATCH /api/quizzes/[id] - Update quiz details (admin/firm_admin only)
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (!user || !["admin", "firm_admin"].includes(user.role)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+  const quiz = await prisma.quiz.findUnique({ where: { id } });
+  if (!quiz) {
+    return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
+  }
+
+  const body = await request.json();
+  const updates: Record<string, unknown> = {};
+
+  if (body.title !== undefined) updates.title = body.title;
+  if (body.description !== undefined) updates.description = body.description;
+  if (body.passMark !== undefined) updates.passMark = body.passMark;
+  if (body.maxAttempts !== undefined) updates.maxAttempts = body.maxAttempts;
+  if (body.timeLimit !== undefined) updates.timeLimit = body.timeLimit;
+  if (body.hours !== undefined) updates.hours = body.hours;
+  if (body.category !== undefined) updates.category = body.category;
+  if (body.activityType !== undefined) updates.activityType = body.activityType;
+  if (body.questionsJson !== undefined) updates.questionsJson = body.questionsJson;
+  if (body.active !== undefined) updates.active = body.active;
+
+  if (Object.keys(updates).length === 0) {
+    return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+  }
+
+  const updated = await prisma.quiz.update({
+    where: { id },
+    data: updates,
+  });
+
+  return NextResponse.json({
+    id: updated.id,
+    title: updated.title,
+    description: updated.description,
+    passMark: updated.passMark,
+    maxAttempts: updated.maxAttempts,
+    hours: updated.hours,
+    active: updated.active,
+    updatedAt: updated.updatedAt.toISOString(),
+  });
+}
+
 // DELETE /api/quizzes/[id] - Deactivate quiz (admin only)
 export async function DELETE(
   _request: Request,

@@ -66,3 +66,35 @@ export async function PATCH(
 
   return NextResponse.json({ certificate: updated });
 }
+
+// DELETE /api/certificates/[id] - Revoke and soft-delete a certificate
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { id } = await params;
+  const certificate = await prisma.certificate.findFirst({
+    where: { id, userId: session.user.id },
+  });
+
+  if (!certificate) {
+    return NextResponse.json(
+      { error: "Certificate not found" },
+      { status: 404 }
+    );
+  }
+
+  // Soft-delete: revoke the certificate rather than hard-deleting
+  // because certificates are regulatory audit evidence
+  const revoked = await prisma.certificate.update({
+    where: { id },
+    data: { status: "revoked" },
+  });
+
+  return NextResponse.json({ deleted: true, id: revoked.id, status: "revoked" });
+}

@@ -40,7 +40,7 @@ export function Nav() {
               </a>
               <button
                 onClick={() => signOut({ callbackUrl: "/" })}
-                className="text-sm text-primary-300 hover:text-white transition"
+                className="cursor-pointer text-sm text-primary-300 hover:text-white transition active:text-primary-100"
               >
                 Sign out
               </button>

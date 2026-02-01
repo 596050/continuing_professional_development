@@ -69,6 +69,68 @@ body {
   background-color: var(--color-surface);
 }
 
+/* ── Interactive element feedback ──
+ * Ensures all clickable elements show pointer cursor and have
+ * tactile active states so users feel the click response.
+ */
+
+/* Cursor: pointer on all interactive elements */
+button,
+[role="button"],
+a[href],
+select,
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+summary {
+  cursor: pointer;
+}
+
+/* Active (pressed) state - slight scale-down for tactile feel */
+button:active:not(:disabled),
+[role="button"]:active,
+a[href]:active {
+  transform: scale(0.97);
+}
+
+/* Smooth transitions on all interactive elements */
+button,
+a[href],
+select,
+input,
+textarea {
+  transition: all 150ms ease;
+}
+
+/* Select elements: custom arrow cursor and hover state */
+select {
+  cursor: pointer;
+  appearance: auto;
+}
+select:hover:not(:disabled) {
+  border-color: var(--color-accent);
+}
+
+/* Disabled elements: not-allowed cursor */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Links: underline on hover for accessibility */
+a[href]:hover {
+  text-decoration-thickness: 2px;
+}
+
+/* Clickable cards and list items - pointer on hover */
+[data-clickable],
+.cursor-pointer {
+  cursor: pointer;
+}
+
 /* Focus ring style (accessibility) */
 *:focus-visible {
   outline: 3px solid var(--color-accent);

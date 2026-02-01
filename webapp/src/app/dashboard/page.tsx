@@ -314,7 +314,7 @@ export default function DashboardPage() {
                 {!isDemo && (
                   <button
                     onClick={() => setShowLogForm(true)}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700"
+                    className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 active:bg-blue-800"
                   >
                     + Log activity
                   </button>
@@ -336,7 +336,7 @@ export default function DashboardPage() {
               ) : (
                 <div className="divide-y divide-gray-100">
                   {activities.map((activity) => (
-                    <div key={activity.id} className="flex items-center justify-between px-6 py-4">
+                    <div key={activity.id} className="flex items-center justify-between px-6 py-4 cursor-pointer transition-colors hover:bg-gray-50">
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-gray-900">{activity.title}</span>
@@ -438,18 +438,18 @@ export default function DashboardPage() {
                 {!isDemo && (
                   <button
                     onClick={() => setShowLogForm(true)}
-                    className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50"
+                    className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
                   >
                     Log CPD activity
                   </button>
                 )}
-                <button className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
                   Export audit report (PDF)
                 </button>
-                <button className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
                   Export audit report (CSV)
                 </button>
-                <button className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50">
+                <button className="w-full cursor-pointer rounded-lg border border-gray-200 px-4 py-2.5 text-left text-sm text-gray-700 transition hover:bg-gray-50 active:bg-gray-100">
                   Upload certificate
                 </button>
               </div>
@@ -464,7 +464,7 @@ export default function DashboardPage() {
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Log CPD Activity</h2>
-              <button onClick={() => { setShowLogForm(false); setLogError(""); }} className="text-gray-400 hover:text-gray-600">
+              <button onClick={() => { setShowLogForm(false); setLogError(""); }} className="cursor-pointer text-gray-400 transition hover:text-gray-600">
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -478,9 +478,16 @@ export default function DashboardPage() {
                   type="text"
                   value={logForm.title}
                   onChange={(e) => setLogForm({ ...logForm, title: e.target.value })}
+                  list="recent-titles"
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                   placeholder="e.g. Ethics in Financial Planning"
                 />
+                {/* Autocomplete from previously logged activity titles */}
+                <datalist id="recent-titles">
+                  {[...new Set(activities.map((a) => a.title))].map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -511,9 +518,16 @@ export default function DashboardPage() {
                   type="text"
                   value={logForm.provider}
                   onChange={(e) => setLogForm({ ...logForm, provider: e.target.value })}
+                  list="recent-providers"
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500"
                   placeholder="e.g. CFP Board, CII, Kitces.com"
                 />
+                {/* Autocomplete from previously used providers to reduce re-typing */}
+                <datalist id="recent-providers">
+                  {[...new Set(activities.map((a) => a.provider).filter(Boolean))].map((p) => (
+                    <option key={p} value={p!} />
+                  ))}
+                </datalist>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -564,14 +578,14 @@ export default function DashboardPage() {
             <div className="mt-6 flex justify-end gap-3">
               <button
                 onClick={() => { setShowLogForm(false); setLogError(""); }}
-                className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="cursor-pointer rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 active:bg-gray-100"
               >
                 Cancel
               </button>
               <button
                 onClick={handleLogActivity}
                 disabled={logSaving || !logForm.title || !logForm.hours || !logForm.date}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {logSaving ? "Saving..." : "Log activity"}
               </button>

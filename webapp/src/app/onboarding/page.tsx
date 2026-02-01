@@ -87,6 +87,7 @@ export default function OnboardingPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  // Pre-populate from session to avoid re-entering signup data
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     email: "",
@@ -99,6 +100,18 @@ export default function OnboardingPage() {
     preferredLearningFormat: [],
     biggestPainPoint: "",
   });
+
+  // Auto-fill name and email from session when available
+  const [prefilled, setPrefilled] = useState(false);
+  if (session?.user && !prefilled) {
+    setPrefilled(true);
+    if (session.user.name && !formData.fullName) {
+      setFormData((prev) => ({ ...prev, fullName: session.user?.name ?? prev.fullName }));
+    }
+    if (session.user.email && !formData.email) {
+      setFormData((prev) => ({ ...prev, email: session.user?.email ?? prev.email }));
+    }
+  }
 
   const updateField = (field: keyof FormData, value: string | string[]) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -460,7 +473,7 @@ export default function OnboardingPage() {
             {step > 1 ? (
               <button
                 onClick={() => setStep(step - 1)}
-                className="rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-text-muted transition hover:bg-surface-alt"
+                className="cursor-pointer rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-text-muted transition hover:bg-surface-alt active:bg-gray-200"
               >
                 Back
               </button>
@@ -470,7 +483,7 @@ export default function OnboardingPage() {
             {step < 4 ? (
               <button
                 onClick={() => setStep(step + 1)}
-                className="rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-dark"
+                className="cursor-pointer rounded-lg bg-accent px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-accent-dark active:bg-accent-700"
               >
                 Continue
               </button>
@@ -478,7 +491,7 @@ export default function OnboardingPage() {
               <button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="rounded-lg bg-accent px-8 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-dark disabled:opacity-50"
+                className="cursor-pointer rounded-lg bg-accent px-8 py-2.5 text-sm font-semibold text-white shadow-lg shadow-accent/25 transition hover:bg-accent-dark active:bg-accent-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? "Saving..." : "Submit & get started"}
               </button>
