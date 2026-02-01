@@ -1,0 +1,32 @@
+# Ralph
+.ralph-tools/
+.ralph/logs/
+
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+package-lock.json
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# System
+.DS_Store
+*.log
+
+# Environment
+.env
+.env.*
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# IDEs
+.vscode/
+.idea/

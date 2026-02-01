@@ -1,0 +1,380 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// ---------------------------------------------------------------------------
+// Auth (NextAuth.js / Auth.js adapter tables)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  passwordHash  String?
+  image         String?
+  role          String    @default("user") // user | admin | firm_admin | firm_member
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  accounts      Account[]
+  sessions      Session[]
+  credentials   UserCredential[]
+  cpdRecords    CpdRecord[]
+  evidence      Evidence[]
+  onboarding    OnboardingSubmission?
+  payments      Payment[]
+  analyticsEvents AnalyticsEvent[]
+  certificates  Certificate[]
+  quizAttempts  QuizAttempt[]
+
+  // Firm membership
+  firmId        String?
+  firm          Firm?     @relation(fields: [firmId], references: [id])
+
+  // Stripe
+  stripeCustomerId String? @unique
+  plan             String  @default("free") // free | setup | managed | firm
+  planActivatedAt  DateTime?
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Credentials and Jurisdictions
+// ---------------------------------------------------------------------------
+
+model Credential {
+  id              String   @id @default(cuid())
+  name            String   @unique // e.g. "CFP", "CII/PFS", "NMC Nurse"
+  body            String   // e.g. "CFP Board", "CII", "NMC"
+  region          String   // e.g. "US", "GB", "AU", "INTL"
+  vertical        String   // financial_services | health | engineering | legal | chartered_accounting
+  hoursRequired   Float?   // annual or per-cycle requirement (null if competence-based)
+  cycleLengthYears Int     @default(1) // 1 for annual, 2 for biennial, 3 for triennial
+  ethicsHours     Float?   // mandatory ethics component
+  structuredHours Float?   // mandatory structured/verifiable component
+  description     String?
+  categoryRules   String?  // JSON: category constraints, tags, special rules
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  userCredentials UserCredential[]
+}
+
+model UserCredential {
+  id              String   @id @default(cuid())
+  userId          String
+  credentialId    String
+  jurisdiction    String   // specific jurisdiction (e.g. state for US, country)
+  renewalDeadline DateTime?
+  hoursCompleted  Float    @default(0)
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  credential Credential @relation(fields: [credentialId], references: [id])
+
+  @@unique([userId, credentialId])
+}
+
+// ---------------------------------------------------------------------------
+// CPD Records and Evidence
+// ---------------------------------------------------------------------------
+
+model CpdRecord {
+  id              String   @id @default(cuid())
+  userId          String
+  title           String
+  provider        String?
+  activityType    String   // structured | unstructured | participatory | verifiable | non-verifiable
+  hours           Float
+  date            DateTime
+  status          String   @default("completed") // completed | in_progress | planned | upcoming
+  category        String?  // ethics | technical | general | firm_element | etc.
+  learningOutcome String?
+  notes           String?
+  externalId      String?  // ID from external provider system
+  source          String   @default("manual") // manual | auto | import | platform
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  evidence Evidence[]
+}
+
+model Evidence {
+  id          String   @id @default(cuid())
+  userId      String
+  cpdRecordId String?
+  fileName    String
+  fileType    String   // pdf | image | text
+  fileSize    Int
+  storageKey  String   // S3 key or local path
+  storageUrl  String?  // signed URL (generated on demand)
+  metadata    String?  // JSON: extracted date, duration, learning outcome
+  uploadedAt  DateTime @default(now())
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cpdRecord CpdRecord? @relation(fields: [cpdRecordId], references: [id])
+}
+
+// ---------------------------------------------------------------------------
+// Onboarding
+// ---------------------------------------------------------------------------
+
+model OnboardingSubmission {
+  id                      String   @id @default(cuid())
+  userId                  String   @unique
+  fullName                String
+  email                   String
+  role                    String?
+  primaryCredential       String?
+  additionalCredentials   String?  // JSON array
+  jurisdiction            String?
+  renewalDeadline         String?
+  currentHoursCompleted   String?
+  preferredLearningFormat String?  // JSON array
+  biggestPainPoint        String?
+  status                  String   @default("pending") // pending | processing | complete
+  submittedAt             DateTime @default(now())
+  processedAt             DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Payments (Stripe)
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id                    String   @id @default(cuid())
+  userId                String
+  stripeSessionId       String?  @unique
+  stripePaymentIntentId String?  @unique
+  amount                Int      // in cents
+  currency              String   @default("usd")
+  status                String   @default("pending") // pending | succeeded | failed | refunded
+  plan                  String   // setup | managed | firm
+  interval              String?  // one_time | monthly | yearly
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Firms (B2B / White-Label)
+// ---------------------------------------------------------------------------
+
+model Firm {
+  id              String   @id @default(cuid())
+  name            String
+  slug            String   @unique // URL-safe identifier
+  domain          String?  // custom domain for white-label
+  logoUrl         String?
+  primaryColor    String?  // hex color for branding
+  secondaryColor  String?
+  plan            String   @default("firm") // firm | white_label
+  seatsLimit      Int      @default(10)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // White-label settings
+  whiteLabel          Boolean @default(false)
+  customBrandName     String? // e.g. "Zurich CPD Academy"
+  certificateTemplate String? // JSON: template config for branded certificates
+  customDomain        String? // e.g. cpd.zurich.co.uk
+  webhookUrl          String? // endpoint for real-time usage data
+  apiKey              String? @unique // for API access to analytics
+  trackingIdPrefix    String? // e.g. "ZUR" for Zurich tracking IDs
+
+  // Stripe
+  stripeCustomerId    String? @unique
+  stripeSubscriptionId String?
+
+  // Relations
+  members         User[]
+  analyticsExports FirmAnalyticsExport[]
+}
+
+model FirmAnalyticsExport {
+  id        String   @id @default(cuid())
+  firmId    String
+  exportType String  // daily_summary | weekly_report | monthly_report | ad_hoc
+  data      String   // JSON: aggregated analytics data
+  createdAt DateTime @default(now())
+
+  firm Firm @relation(fields: [firmId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Reminders
+// ---------------------------------------------------------------------------
+
+model Reminder {
+  id          String   @id @default(cuid())
+  userId      String
+  type        String   // deadline | progress | custom
+  title       String
+  message     String?
+  triggerDate DateTime
+  channel     String   @default("email") // email | calendar | both
+  status      String   @default("pending") // pending | sent | dismissed | failed
+  credentialId String?
+  metadata    String?  // JSON: extra config (recurrence, .ics data, etc.)
+  createdAt   DateTime @default(now())
+  sentAt      DateTime?
+
+  @@index([userId, status])
+  @@index([triggerDate, status])
+}
+
+// ---------------------------------------------------------------------------
+// Certificates
+// ---------------------------------------------------------------------------
+
+model Certificate {
+  id              String   @id @default(cuid())
+  userId          String
+  certificateCode String   @unique // e.g. "CERT-2026-abc123"
+  title           String
+  credentialName  String?
+  hours           Float
+  category        String?
+  activityType    String?
+  provider        String?
+  completedDate   DateTime
+  issuedDate      DateTime @default(now())
+  verificationUrl String
+  pdfStorageKey   String?
+  metadata        String?  // JSON: extra data (quiz score, watch time, etc.)
+  status          String   @default("active") // active | revoked
+  cpdRecordId     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, issuedDate])
+  @@index([certificateCode])
+}
+
+// ---------------------------------------------------------------------------
+// Quizzes and Assessments
+// ---------------------------------------------------------------------------
+
+model Quiz {
+  id           String   @id @default(cuid())
+  title        String
+  description  String?
+  credentialId String?
+  activityType String?  // what type of CPD this counts for
+  passMark     Float    @default(70) // percentage needed to pass
+  maxAttempts  Int      @default(3)
+  timeLimit    Int?     // minutes, null = unlimited
+  hours        Float    @default(0) // CPD hours awarded on pass
+  category     String?  // ethics | technical | general
+  questionsJson String  // JSON array of questions
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  attempts QuizAttempt[]
+}
+
+model QuizAttempt {
+  id          String    @id @default(cuid())
+  userId      String
+  quizId      String
+  answers     String    // JSON: user's answers
+  score       Float     // percentage 0-100
+  passed      Boolean
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quiz Quiz @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@index([userId, quizId])
+}
+
+// ---------------------------------------------------------------------------
+// Completion Rules
+// ---------------------------------------------------------------------------
+
+model CompletionRule {
+  id           String   @id @default(cuid())
+  name         String
+  ruleType     String   // quiz_pass | watch_time | attendance | evidence_upload
+  config       String   // JSON: { quizId, minScore, minWatchPercent, etc. }
+  credentialId String?
+  cpdRecordId  String?  // if rule is for a specific activity
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+// ---------------------------------------------------------------------------
+// Usage Analytics
+// ---------------------------------------------------------------------------
+
+model AnalyticsEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  sessionId String?  // anonymous session tracking
+  firmId    String?  // which firm context (for white-label)
+  event     String   // page_view | module_start | module_complete | certificate_issued | export | login | onboarding_step | quiz_attempt | quiz_pass
+  page      String?  // URL or page identifier
+  metadata  String?  // JSON: additional event data (module_id, quiz_score, etc.)
+  trackingId String? // firm-specific tracking ID (e.g. ZUR-00123)
+  userAgent String?
+  ipHash    String?  // hashed IP for geo without PII
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([firmId, createdAt])
+  @@index([event, createdAt])
+  @@index([trackingId])
+}
